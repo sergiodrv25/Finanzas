@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fondo: #0a0a0f;
+  --color-superficie: #101016;
+  --color-superficie-2: #17171f;
+  --color-borde: #23232d;
+  --color-tinta: #f4f4f6;
+  --color-tinta-2: #a3a3b0;
+  --color-tinta-3: #6b6b78;
+  --color-acento: #3987e5;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-fondo);
+  color: var(--color-tinta);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Zonas seguras del iPhone (notch / barra inferior) en modo standalone */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior-y: none;
+}
+
+/* Evita el zoom automático de iOS al enfocar inputs (fuente >= 16px) */
+input, select, textarea, button {
+  font-size: 16px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
