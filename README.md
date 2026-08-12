@@ -111,6 +111,23 @@ Están en la tabla `reglas` de Supabase: si el nombre del comercio contiene el
 patrón (sin distinguir mayúsculas), se asigna esa categoría. Añade las tuyas
 en **Table Editor → reglas** (p. ej. patrón `alcampo` → `supermercado`).
 
+## 7. Ingresos (nóminas, apuestas, etc.)
+
+Desde la migración `supabase/migracion-ingresos.sql` la app registra también
+ingresos, con sus propias categorías (Nómina, Apuestas, Inversiones, Otros
+ingresos). El resumen del mes muestra gastos, ingresos, balance y tasa de ahorro.
+
+- **En la app:** el botón + abre "Nuevo movimiento" con selector Gasto/Ingreso.
+- **Desde el atajo:** escribe el importe con prefijo `+` para que sea un
+  ingreso: `+1500 nómina`. Sin prefijo es un gasto. (Requiere que la regex del
+  atajo admita el `+` inicial: `^(\+?[\d]+[.,]?\d*)\s+(.+)$`.)
+- **En la Edge Function:** también se puede enviar `"tipo": "ingreso"` en el
+  cuerpo del POST.
+
+Si tu base de datos es anterior a esta versión, ejecuta
+`supabase/migracion-ingresos.sql` en el SQL Editor de Supabase y vuelve a
+desplegar la Edge Function.
+
 ## Estructura del proyecto
 
 ```

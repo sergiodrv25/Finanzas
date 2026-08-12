@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Categoria, Gasto } from '../types'
-import { categoriaPorId } from '../lib/categorias'
+import { categoriaPorId, tipoDeCategoria } from '../lib/categorias'
 import { formatearImporte, nombreDia } from '../lib/formato'
 
 interface Props {
@@ -20,7 +20,10 @@ export default function HojaGasto({
 }: Props) {
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
   const [ocupado, setOcupado] = useState(false)
-  const cat = categoriaPorId(categorias, gasto.categoria_id)
+  const cat = categoriaPorId(categorias, gasto.categoria_id, gasto.tipo)
+  const categoriasDelTipo = categorias.filter(
+    (c) => tipoDeCategoria(c) === gasto.tipo,
+  )
 
   async function cambiar(categoriaId: string) {
     if (ocupado) return
@@ -70,8 +73,13 @@ export default function HojaGasto({
               {gasto.origen === 'apple_pay' && ' ·  Apple Pay'}
             </p>
           </div>
-          <p className="num ml-auto text-xl font-semibold">
-            −{formatearImporte(gasto.importe)}
+          <p
+            className={`num ml-auto text-xl font-semibold ${
+              gasto.tipo === 'ingreso' ? 'text-emerald-400' : ''
+            }`}
+          >
+            {gasto.tipo === 'ingreso' ? '+' : '−'}
+            {formatearImporte(gasto.importe)}
           </p>
         </div>
 
@@ -81,7 +89,7 @@ export default function HojaGasto({
 
         <p className="mt-5 text-sm text-tinta-2">Categoría</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {categorias.map((c) => {
+          {categoriasDelTipo.map((c) => {
             const activa = c.id === cat.id
             return (
               <button
@@ -126,7 +134,7 @@ export default function HojaGasto({
             onClick={() => setConfirmandoBorrado(true)}
             className="mt-6 w-full rounded-xl border border-borde py-3 text-red-400"
           >
-            Eliminar gasto
+            {gasto.tipo === 'ingreso' ? 'Eliminar ingreso' : 'Eliminar gasto'}
           </button>
         )}
       </div>

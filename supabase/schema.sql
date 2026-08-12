@@ -8,14 +8,18 @@ create table if not exists public.categorias (
   id     text primary key,
   nombre text not null,
   emoji  text not null default '📦',
-  color  text not null default '#898781'
+  color  text not null default '#898781',
+  tipo   text not null default 'gasto'
+         check (tipo in ('gasto', 'ingreso'))
 );
 
--- Gastos
+-- Gastos e ingresos (movimientos)
 create table if not exists public.gastos (
   id           uuid primary key default gen_random_uuid(),
   fecha        date not null default current_date,
   importe      numeric(10,2) not null check (importe > 0),
+  tipo         text not null default 'gasto'
+               check (tipo in ('gasto', 'ingreso')),
   comercio     text not null,
   descripcion  text,
   categoria_id text references public.categorias(id),
@@ -70,6 +74,14 @@ insert into public.categorias (id, nombre, emoji, color) values
   ('salud',         'Salud',         '💊', '#e66767'),
   ('viajes',        'Viajes',        '✈️', '#008300'),
   ('otros',         'Otros',         '📦', '#898781')
+on conflict (id) do nothing;
+
+-- Categorías de ingreso
+insert into public.categorias (id, nombre, emoji, color, tipo) values
+  ('nomina',         'Nómina',         '💼', '#14a5a5', 'ingreso'),
+  ('apuestas',       'Apuestas',       '🎲', '#c9a227', 'ingreso'),
+  ('inversiones',    'Inversiones',    '📈', '#5aa64c', 'ingreso'),
+  ('otros_ingresos', 'Otros ingresos', '💰', '#8a8f98', 'ingreso')
 on conflict (id) do nothing;
 
 -- Algunas reglas de ejemplo (edítalas o añade las tuyas)

@@ -13,10 +13,16 @@ interface FilaCategoria {
 }
 
 export default function ResumenMes({ gastos, categorias }: Props) {
-  const total = gastos.reduce((s, g) => s + g.importe, 0)
+  const soloGastos = gastos.filter((g) => g.tipo !== 'ingreso')
+  const soloIngresos = gastos.filter((g) => g.tipo === 'ingreso')
+
+  const totalGastos = soloGastos.reduce((s, g) => s + g.importe, 0)
+  const totalIngresos = soloIngresos.reduce((s, g) => s + g.importe, 0)
+  const balance = totalIngresos - totalGastos
+  const tasaAhorro = totalIngresos > 0 ? (balance / totalIngresos) * 100 : null
 
   const porCategoria = new Map<string, number>()
-  for (const g of gastos) {
+  for (const g of soloGastos) {
     const cat = categoriaPorId(categorias, g.categoria_id)
     porCategoria.set(cat.id, (porCategoria.get(cat.id) ?? 0) + g.importe)
   }
@@ -27,10 +33,42 @@ export default function ResumenMes({ gastos, categorias }: Props) {
 
   return (
     <section className="px-5">
-      <p className="text-sm text-tinta-2">Total del mes</p>
+      <p className="text-sm text-tinta-2">Gastos del mes</p>
       <p className="num mt-1 text-5xl font-semibold tracking-tight">
-        {formatearImporte(total)}
+        {formatearImporte(totalGastos)}
       </p>
+
+      {totalIngresos > 0 && (
+        <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl border border-borde bg-superficie px-4 py-3">
+          <div>
+            <p className="text-xs text-tinta-3">Ingresos</p>
+            <p className="num mt-0.5 text-sm font-medium text-emerald-400">
+              +{formatearImporte(totalIngresos)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-tinta-3">Balance</p>
+            <p
+              className={`num mt-0.5 text-sm font-medium ${
+                balance >= 0 ? 'text-emerald-400' : 'text-red-400'
+              }`}
+            >
+              {balance >= 0 ? '+' : '−'}
+              {formatearImporte(Math.abs(balance))}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-tinta-3">Ahorro</p>
+            <p
+              className={`num mt-0.5 text-sm font-medium ${
+                balance >= 0 ? 'text-emerald-400' : 'text-red-400'
+              }`}
+            >
+              {tasaAhorro === null ? '—' : `${Math.round(tasaAhorro)} %`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {filas.length > 0 && (
         <div className="mt-6 space-y-3">

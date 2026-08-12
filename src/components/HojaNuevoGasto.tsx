@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Categoria, GastoNuevo } from '../types'
+import type { Categoria, GastoNuevo, TipoMovimiento } from '../types'
+import { tipoDeCategoria } from '../lib/categorias'
 import { hoyISO } from '../lib/formato'
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Props) {
+  const [tipo, setTipo] = useState<TipoMovimiento>('gasto')
   const [importe, setImporte] = useState('')
   const [comercio, setComercio] = useState('')
   const [categoriaId, setCategoriaId] = useState<string | null>(null)
@@ -28,6 +30,7 @@ export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Prop
       await onGuardar({
         fecha,
         importe: Math.round(importeNum * 100) / 100,
+        tipo,
         comercio,
         descripcion: nota || null,
         categoria_id: categoriaId,
@@ -50,7 +53,38 @@ export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Prop
       />
       <div className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-borde bg-superficie p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-borde" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">Nuevo gasto</h2>
+        <h2 className="text-lg font-semibold">Nuevo movimiento</h2>
+
+        <div
+          role="group"
+          aria-label="Tipo de movimiento"
+          className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-borde bg-superficie-2 p-1"
+        >
+          {(
+            [
+              ['gasto', 'Gasto'],
+              ['ingreso', 'Ingreso'],
+            ] as const
+          ).map(([valor, etiqueta]) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => {
+                setTipo(valor)
+                setCategoriaId(null)
+              }}
+              className={`rounded-lg py-2 text-sm font-medium ${
+                tipo === valor
+                  ? valor === 'ingreso'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-acento text-white'
+                  : 'text-tinta-2'
+              }`}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
 
         <label className="mt-4 block">
           <span className="text-sm text-tinta-2">Importe (€)</span>
@@ -65,9 +99,11 @@ export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Prop
         </label>
 
         <label className="mt-3 block">
-          <span className="text-sm text-tinta-2">Comercio</span>
+          <span className="text-sm text-tinta-2">
+            {tipo === 'ingreso' ? 'Concepto' : 'Comercio'}
+          </span>
           <input
-            placeholder="Mercadona, Netflix…"
+            placeholder={tipo === 'ingreso' ? 'Nómina agosto, apuesta…' : 'Mercadona, Netflix…'}
             value={comercio}
             onChange={(e) => setComercio(e.target.value)}
             className="mt-1 w-full rounded-xl border border-borde bg-superficie-2 px-4 py-3 outline-none focus:border-acento"
@@ -77,7 +113,9 @@ export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Prop
         <fieldset className="mt-4">
           <legend className="text-sm text-tinta-2">Categoría</legend>
           <div className="mt-2 flex flex-wrap gap-2">
-            {categorias.map((c) => {
+            {categorias
+              .filter((c) => tipoDeCategoria(c) === tipo)
+              .map((c) => {
               const activa = categoriaId === c.id
               return (
                 <button
@@ -127,7 +165,11 @@ export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Prop
           onClick={guardar}
           className="mt-5 w-full rounded-xl bg-acento py-3.5 font-semibold text-white disabled:opacity-40"
         >
-          {guardando ? 'Guardando…' : 'Guardar gasto'}
+          {guardando
+            ? 'Guardando…'
+            : tipo === 'ingreso'
+              ? 'Guardar ingreso'
+              : 'Guardar gasto'}
         </button>
       </div>
     </div>

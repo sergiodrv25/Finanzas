@@ -13,7 +13,7 @@ export default function ListaGastos({ gastos, categorias, onSeleccionar }: Props
     return (
       <div className="px-5 py-16 text-center text-tinta-3">
         <p className="text-4xl" aria-hidden="true">🪙</p>
-        <p className="mt-3">Todavía no hay gastos este mes.</p>
+        <p className="mt-3">Todavía no hay movimientos este mes.</p>
         <p className="mt-1 text-sm">Pulsa + para añadir el primero.</p>
       </div>
     )
@@ -36,12 +36,18 @@ export default function ListaGastos({ gastos, categorias, onSeleccionar }: Props
               {nombreDia(grupo.fecha)}
             </h2>
             <span className="num text-xs text-tinta-3">
-              {formatearImporte(grupo.items.reduce((s, g) => s + g.importe, 0))}
+              {(() => {
+                const neto = grupo.items.reduce(
+                  (s, g) => s + (g.tipo === 'ingreso' ? g.importe : -g.importe),
+                  0,
+                )
+                return `${neto > 0 ? '+' : neto < 0 ? '−' : ''}${formatearImporte(Math.abs(neto))}`
+              })()}
             </span>
           </div>
           <ul className="mt-2 overflow-hidden rounded-2xl border border-borde bg-superficie">
             {grupo.items.map((g, i) => {
-              const cat = categoriaPorId(categorias, g.categoria_id)
+              const cat = categoriaPorId(categorias, g.categoria_id, g.tipo)
               return (
                 <li key={g.id}>
                   <button
@@ -66,8 +72,13 @@ export default function ListaGastos({ gastos, categorias, onSeleccionar }: Props
                         {g.descripcion ? ` · ${g.descripcion}` : ''}
                       </span>
                     </span>
-                    <span className="num shrink-0 font-medium">
-                      −{formatearImporte(g.importe)}
+                    <span
+                      className={`num shrink-0 font-medium ${
+                        g.tipo === 'ingreso' ? 'text-emerald-400' : ''
+                      }`}
+                    >
+                      {g.tipo === 'ingreso' ? '+' : '−'}
+                      {formatearImporte(g.importe)}
                     </span>
                   </button>
                 </li>

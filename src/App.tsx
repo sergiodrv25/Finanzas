@@ -146,7 +146,7 @@ function Principal() {
 
       <button
         type="button"
-        aria-label="Añadir gasto"
+        aria-label="Añadir movimiento"
         onClick={() => setMostrandoNuevo(true)}
         className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-acento text-3xl font-light text-white shadow-lg shadow-black/40 active:scale-95"
       >

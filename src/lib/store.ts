@@ -13,7 +13,9 @@ const CLAVE_LOCAL = 'finanzas.gastos.v1'
 function leerLocal(): Gasto[] {
   try {
     const raw = localStorage.getItem(CLAVE_LOCAL)
-    return raw ? (JSON.parse(raw) as Gasto[]) : []
+    const gastos = raw ? (JSON.parse(raw) as Gasto[]) : []
+    // Datos guardados antes de existir el campo tipo -> son gastos
+    return gastos.map((g) => ({ ...g, tipo: g.tipo ?? 'gasto' }))
   } catch {
     return []
   }
@@ -39,7 +41,7 @@ export async function listarCategorias(): Promise<Categoria[]> {
   if (!supabase) return CATEGORIAS_DEFECTO
   const { data, error } = await supabase
     .from('categorias')
-    .select('id, nombre, emoji, color')
+    .select('id, nombre, emoji, color, tipo')
     .order('nombre')
   if (error || !data || data.length === 0) return CATEGORIAS_DEFECTO
   return data as Categoria[]
@@ -73,6 +75,7 @@ export async function anadirGasto(nuevo: GastoNuevo): Promise<Gasto> {
     id: idAleatorio(),
     fecha: nuevo.fecha,
     importe: nuevo.importe,
+    tipo: nuevo.tipo ?? 'gasto',
     comercio: nuevo.comercio.trim(),
     descripcion: nuevo.descripcion?.trim() || null,
     categoria_id: nuevo.categoria_id,
@@ -91,6 +94,7 @@ export async function anadirGasto(nuevo: GastoNuevo): Promise<Gasto> {
     .insert({
       fecha: gasto.fecha,
       importe: gasto.importe,
+      tipo: gasto.tipo,
       comercio: gasto.comercio,
       descripcion: gasto.descripcion,
       categoria_id: gasto.categoria_id,

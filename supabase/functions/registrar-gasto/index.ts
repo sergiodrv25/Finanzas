@@ -16,6 +16,16 @@
 //   Cabeceras: x-token: <TOKEN_ATAJOS>
 //   Cuerpo: { "importe": "12,50", "comercio": "Mercadona", "fecha": "..." }
 //   El importe admite formato español ("12,50") o número (12.5).
+//
+// Campos opcionales del cuerpo:
+//   "origen": "manual"  -> etiqueta el gasto como manual (si no, apple_pay).
+//   "categoria": "Restaurantes" -> nombre de la categoría elegida en el
+//     atajo. Insensible a mayúsculas y tildes. Si viene vacía, es "Auto"
+//     o no coincide con ninguna categoría, se aplican las reglas de la
+//     tabla `reglas` como hasta ahora.
+//   "tipo": "ingreso" -> registra un ingreso en vez de un gasto.
+//     Atajo rápido: si el importe llega con prefijo "+" ("+1500"),
+//     también se interpreta como ingreso.
 // ============================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -35,6 +45,15 @@ function parsearImporte(valor: unknown): number | null {
     if (isFinite(n) && n !== 0) return Math.abs(n)
   }
   return null
+}
+
+// "Restaurantes", "restaurantes " y "RESTAURANTES" se consideran iguales.
+function normalizar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos
+    .toLowerCase()
+    .trim()
 }
 
 function parsearFecha(valor: unknown): string {
@@ -73,6 +92,13 @@ Deno.serve(async (req) => {
   const comercio = String(cuerpo.comercio ?? '').trim() || 'Desconocido'
   const fecha = parsearFecha(cuerpo.fecha)
   const origen = cuerpo.origen === 'manual' ? 'manual' : 'apple_pay'
+  const categoriaSolicitada = String(cuerpo.categoria ?? '').trim()
+  // Ingreso si lo dice el campo "tipo" o si el importe llega con "+"
+  const tipo =
+    cuerpo.tipo === 'ingreso' ||
+    (typeof cuerpo.importe === 'string' && cuerpo.importe.trim().startsWith('+'))
+      ? 'ingreso'
+      : 'gasto'
 
   if (importe === null) {
     return new Response(JSON.stringify({ error: 'Importe inválido' }), {
@@ -95,6 +121,7 @@ Deno.serve(async (req) => {
     .eq('fecha', fecha)
     .eq('importe', importe)
     .eq('comercio', comercio)
+    .eq('tipo', tipo)
     .gte('created_at', hace2min)
     .limit(1)
 
@@ -104,17 +131,38 @@ Deno.serve(async (req) => {
     })
   }
 
-  // --- Categorización automática por reglas ---
   let categoriaId: string | null = null
-  const { data: reglas } = await supabase
-    .from('reglas')
-    .select('patron, categoria_id')
-  if (reglas) {
-    const comercioMin = comercio.toLowerCase()
-    for (const regla of reglas) {
-      if (comercioMin.includes(String(regla.patron).toLowerCase())) {
-        categoriaId = regla.categoria_id
-        break
+
+  // --- 1) Categoría elegida en el atajo (campo opcional "categoria") ---
+  //     "Auto" o vacío significa: dejar que decidan las reglas.
+  if (categoriaSolicitada && normalizar(categoriaSolicitada) !== 'auto') {
+    const { data: categorias } = await supabase
+      .from('categorias')
+      .select('id, nombre')
+    if (categorias) {
+      const buscada = normalizar(categoriaSolicitada)
+      const encontrada = categorias.find(
+        (c) => normalizar(String(c.nombre)) === buscada,
+      )
+      if (encontrada) categoriaId = encontrada.id
+      // Si no coincide con ninguna categoría, no se falla:
+      // se sigue con las reglas automáticas.
+    }
+  }
+
+  // --- 2) Categorización automática por reglas (solo gastos: las reglas
+  //     describen comercios, no fuentes de ingreso) ---
+  if (categoriaId === null && tipo === 'gasto') {
+    const { data: reglas } = await supabase
+      .from('reglas')
+      .select('patron, categoria_id')
+    if (reglas) {
+      const comercioMin = comercio.toLowerCase()
+      for (const regla of reglas) {
+        if (comercioMin.includes(String(regla.patron).toLowerCase())) {
+          categoriaId = regla.categoria_id
+          break
+        }
       }
     }
   }
@@ -127,6 +175,7 @@ Deno.serve(async (req) => {
       comercio,
       categoria_id: categoriaId,
       origen,
+      tipo,
       moneda: 'EUR',
     })
     .select()
