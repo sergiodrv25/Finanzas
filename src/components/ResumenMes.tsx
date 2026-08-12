@@ -1,5 +1,5 @@
 import type { Categoria, Gasto } from '../types'
-import { categoriaPorId } from '../lib/categorias'
+import { categoriaPorId, esApuesta } from '../lib/categorias'
 import { formatearImporte } from '../lib/formato'
 
 interface Props {
@@ -13,12 +13,20 @@ interface FilaCategoria {
 }
 
 export default function ResumenMes({ gastos, categorias }: Props) {
-  const soloGastos = gastos.filter((g) => g.tipo !== 'ingreso')
-  const soloIngresos = gastos.filter((g) => g.tipo === 'ingreso')
+  // Las apuestas van aparte: no son consumo ni ingreso ordinario
+  const soloGastos = gastos.filter((g) => g.tipo !== 'ingreso' && !esApuesta(g.categoria_id))
+  const soloIngresos = gastos.filter((g) => g.tipo === 'ingreso' && !esApuesta(g.categoria_id))
+  const apostado = gastos
+    .filter((g) => g.tipo !== 'ingreso' && esApuesta(g.categoria_id))
+    .reduce((s, g) => s + g.importe, 0)
+  const ganado = gastos
+    .filter((g) => g.tipo === 'ingreso' && esApuesta(g.categoria_id))
+    .reduce((s, g) => s + g.importe, 0)
+  const netoApuestas = ganado - apostado
 
   const totalGastos = soloGastos.reduce((s, g) => s + g.importe, 0)
   const totalIngresos = soloIngresos.reduce((s, g) => s + g.importe, 0)
-  const balance = totalIngresos - totalGastos
+  const balance = totalIngresos - totalGastos + netoApuestas
   const tasaAhorro = totalIngresos > 0 ? (balance / totalIngresos) * 100 : null
 
   const porCategoria = new Map<string, number>()
@@ -37,6 +45,17 @@ export default function ResumenMes({ gastos, categorias }: Props) {
       <p className="num mt-1 text-5xl font-semibold tracking-tight">
         {formatearImporte(totalGastos)}
       </p>
+
+      {(apostado > 0 || ganado > 0) && (
+        <p className="mt-3 rounded-xl border border-borde bg-superficie px-4 py-2 text-xs text-tinta-2">
+          <span aria-hidden="true">🎲</span> Apuestas: apostado{' '}
+          <b className="num text-tinta">{formatearImporte(apostado)}</b> · ganado{' '}
+          <b className="num text-tinta">{formatearImporte(ganado)}</b> · neto{' '}
+          <b className={`num ${netoApuestas > 0 ? 'text-emerald-400' : netoApuestas < 0 ? 'text-red-400' : ''}`}>
+            {netoApuestas >= 0 ? '+' : '−'}{formatearImporte(Math.abs(netoApuestas))}
+          </b>
+        </p>
+      )}
 
       {totalIngresos > 0 && (
         <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl border border-borde bg-superficie px-4 py-3">

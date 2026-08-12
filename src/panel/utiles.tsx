@@ -61,6 +61,7 @@ export function Tooltip({ tip }: { tip: DatosTip | null }) {
 // ---------------------------------------------------------------------------
 
 import type { Gasto } from '../types'
+import { esApuesta } from '../lib/categorias'
 
 export interface MesSerie {
   mes: string // 'YYYY-MM'
@@ -75,17 +76,35 @@ export function serieMensual(movs: Gasto[], meses: string[]): MesSerie[] {
   )
   for (const g of movs) {
     const fila = mapa.get(g.fecha.slice(0, 7))
-    if (!fila) continue
+    if (!fila || esApuesta(g.categoria_id)) continue
     if (g.tipo === 'ingreso') fila.ingresos += g.importe
     else fila.gastos += g.importe
   }
   return meses.map((m) => mapa.get(m)!)
 }
 
+/** Gastos ordinarios: sin apuestas (las apuestas van como neto aparte). */
 export function totalGastos(movs: Gasto[]): number {
-  return movs.filter((g) => g.tipo !== 'ingreso').reduce((s, g) => s + g.importe, 0)
+  return movs
+    .filter((g) => g.tipo !== 'ingreso' && !esApuesta(g.categoria_id))
+    .reduce((s, g) => s + g.importe, 0)
 }
 
+/** Ingresos ordinarios: sin ganancias de apuestas. */
 export function totalIngresos(movs: Gasto[]): number {
-  return movs.filter((g) => g.tipo === 'ingreso').reduce((s, g) => s + g.importe, 0)
+  return movs
+    .filter((g) => g.tipo === 'ingreso' && !esApuesta(g.categoria_id))
+    .reduce((s, g) => s + g.importe, 0)
+}
+
+/** Apostado, ganado y neto de apuestas del conjunto de movimientos. */
+export function resumenApuestas(movs: Gasto[]): { apostado: number; ganado: number; neto: number } {
+  let apostado = 0
+  let ganado = 0
+  for (const g of movs) {
+    if (!esApuesta(g.categoria_id)) continue
+    if (g.tipo === 'ingreso') ganado += g.importe
+    else apostado += g.importe
+  }
+  return { apostado, ganado, neto: ganado - apostado }
 }

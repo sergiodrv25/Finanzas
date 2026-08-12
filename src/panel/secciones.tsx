@@ -1,9 +1,9 @@
 import type { Categoria, Gasto } from '../types'
-import { categoriaPorId } from '../lib/categorias'
+import { categoriaPorId, esApuesta } from '../lib/categorias'
 import { formatearImporte, nombreMes } from '../lib/formato'
 import Icono, { ICONO_CAT } from './iconos'
 import { colorCategoria, RAMPA_CALENDARIO, SERIE_GASTOS, SERIE_INGRESOS } from './paleta'
-import { Tooltip, useTooltip, totalGastos, totalIngresos } from './utiles'
+import { Tooltip, useTooltip, resumenApuestas, totalGastos, totalIngresos } from './utiles'
 import type { MesSerie } from './utiles'
 
 const nf = new Intl.NumberFormat('es-ES')
@@ -46,9 +46,11 @@ interface KpisProps {
 }
 
 export function Kpis({ periodo, previo, etiquetaComparacion, serie }: KpisProps) {
-  const gastos = totalGastos(periodo)
-  const ingresos = totalIngresos(periodo)
-  const balance = ingresos - gastos
+  const gastos = totalGastos(periodo) // sin apuestas
+  const ingresos = totalIngresos(periodo) // sin apuestas
+  const apuestas = resumenApuestas(periodo)
+  // El balance sí es dinero real completo: incluye el neto de apuestas
+  const balance = ingresos - gastos + apuestas.neto
   const tasa = ingresos > 0 ? (balance / ingresos) * 100 : null
 
   const gastosPrev = previo ? totalGastos(previo) : null
@@ -58,13 +60,16 @@ export function Kpis({ periodo, previo, etiquetaComparacion, serie }: KpisProps)
 
   const tasaPrev =
     ingresosPrev !== null && ingresosPrev > 0 && gastosPrev !== null
-      ? ((ingresosPrev - gastosPrev) / ingresosPrev) * 100
+      ? ((ingresosPrev - gastosPrev + (previo ? resumenApuestas(previo).neto : 0)) / ingresosPrev) * 100
       : null
 
+  const hayApuestas = apuestas.apostado > 0 || apuestas.ganado > 0
+
   return (
-    <div className="mb-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <>
+    <div className={`grid grid-cols-2 gap-3 xl:grid-cols-4 ${hayApuestas ? 'mb-2' : 'mb-3'}`}>
       <div className="relative rounded-2xl border border-borde bg-superficie px-4.5 py-4">
-        <p className="text-[12.5px] text-tinta-2">Gastos del período</p>
+        <p className="text-[12.5px] text-tinta-2">Gastos del período <span className="text-tinta-3">· sin apuestas</span></p>
         <p className="num mt-0.5 text-[27px] font-semibold tracking-tight">{formatearImporte(gastos)}</p>
         <p className="mt-0.5 text-xs text-tinta-3">
           <Delta pct={pct(gastos, gastosPrev)} malSiSube={true} /> {etiquetaComparacion}
@@ -84,7 +89,9 @@ export function Kpis({ periodo, previo, etiquetaComparacion, serie }: KpisProps)
         <p className={`num mt-0.5 text-[27px] font-semibold tracking-tight ${balance >= 0 ? 'text-verde' : 'text-rojo'}`}>
           {balance >= 0 ? '+' : '−'}{formatearImporte(Math.abs(balance))}
         </p>
-        <p className="mt-0.5 text-xs text-tinta-3">ingresos − gastos</p>
+        <p className="mt-0.5 text-xs text-tinta-3">
+          {hayApuestas ? 'ingresos − gastos ± apuestas' : 'ingresos − gastos'}
+        </p>
       </div>
       <div className="rounded-2xl border border-borde bg-superficie px-4.5 py-4">
         <p className="text-[12.5px] text-tinta-2">Tasa de ahorro</p>
@@ -96,6 +103,23 @@ export function Kpis({ periodo, previo, etiquetaComparacion, serie }: KpisProps)
         </p>
       </div>
     </div>
+    {hayApuestas && (
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl border border-borde bg-superficie px-4.5 py-2.5 text-[12.5px]">
+        <span className="flex items-center gap-1.5 font-semibold">
+          <Icono id="dado" tam={14} className="text-tinta-3" /> Apuestas del período
+        </span>
+        <span className="text-tinta-2">Apostado <b className="num text-tinta">{formatearImporte(apuestas.apostado)}</b></span>
+        <span className="text-tinta-2">Ganado <b className="num text-tinta">{formatearImporte(apuestas.ganado)}</b></span>
+        <span className="text-tinta-2">
+          Neto{' '}
+          <b className={`num ${apuestas.neto > 0 ? 'text-verde' : apuestas.neto < 0 ? 'text-rojo' : 'text-tinta'}`}>
+            {apuestas.neto >= 0 ? '+' : '−'}{formatearImporte(Math.abs(apuestas.neto))}
+          </b>
+        </span>
+        <span className="ml-auto text-[11.5px] text-tinta-3">incluido en el balance, fuera de gastos e ingresos</span>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -112,7 +136,7 @@ export function Evolucion({ serie }: { serie: MesSerie[] }) {
   return (
     <div className="rounded-2xl border border-borde bg-superficie p-5">
       <h2 className="text-sm font-semibold">Evolución mensual</h2>
-      <p className="mb-3 text-xs text-tinta-3">Ingresos frente a gastos</p>
+      <p className="mb-3 text-xs text-tinta-3">Ingresos frente a gastos · apuestas aparte</p>
       <div className="mb-2.5 flex gap-4 text-xs text-tinta-2">
         <span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-[3px] align-[-1px]" style={{ background: SERIE_INGRESOS }} />Ingresos</span>
         <span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-[3px] align-[-1px]" style={{ background: SERIE_GASTOS }} />Gastos</span>
@@ -180,7 +204,7 @@ export function GastoPorCategoria({ periodo, previo, categorias }: CatProps) {
   function porCategoria(movs: Gasto[]): Map<string, number> {
     const mapa = new Map<string, number>()
     for (const g of movs) {
-      if (g.tipo === 'ingreso') continue
+      if (g.tipo === 'ingreso' || esApuesta(g.categoria_id)) continue
       const cat = categoriaPorId(categorias, g.categoria_id)
       mapa.set(cat.id, (mapa.get(cat.id) ?? 0) + g.importe)
     }
@@ -198,7 +222,7 @@ export function GastoPorCategoria({ periodo, previo, categorias }: CatProps) {
     <div className="rounded-2xl border border-borde bg-superficie p-5">
       <h2 className="text-sm font-semibold">Gasto por categoría</h2>
       <p className="mb-3 text-xs text-tinta-3">
-        {anterior ? 'Variación frente al período anterior' : 'Total del período'}
+        {anterior ? 'Variación frente al período anterior' : 'Total del período'} · apuestas aparte
       </p>
       {filas.length === 0 && <p className="py-6 text-center text-sm text-tinta-3">Sin gastos en el período.</p>}
       {filas.map(({ categoria, total }) => {
@@ -247,7 +271,7 @@ export function Calendario({ mes, movs }: { mes: string; movs: Gasto[] }) {
 
   const porDia = new Array<number>(dias).fill(0)
   for (const g of movs) {
-    if (g.tipo === 'ingreso' || g.fecha.slice(0, 7) !== mes) continue
+    if (g.tipo === 'ingreso' || esApuesta(g.categoria_id) || g.fecha.slice(0, 7) !== mes) continue
     porDia[Number(g.fecha.slice(8, 10)) - 1] += g.importe
   }
   const max = Math.max(...porDia, 1)

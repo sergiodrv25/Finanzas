@@ -43,3 +43,11 @@ export function categoriaPorId(
     }
   )
 }
+
+/**
+ * Las apuestas no son consumo: se tratan como balance aparte
+ * (apostado vs ganado) en los resúmenes de la app y del panel.
+ */
+export function esApuesta(categoriaId: string | null | undefined): boolean {
+  return categoriaId === 'apuestas' || categoriaId === 'apuestas_gasto'
+}

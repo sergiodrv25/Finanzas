@@ -31,6 +31,10 @@
 // (o "> <importe>"), p. ej. "cena cumpleaños deben 45", se limpia el
 // nombre y se crea una deuda pendiente enlazada al gasto en la tabla
 // `deudas`. Solo aplica a gastos.
+//
+// Split automático: "/N" al final divide entre N personas (tú incluido)
+// y crea la deuda por las N-1 partes restantes. Ej: "60 cena /4"
+// -> gasto de 60 € + deuda de 45 €.
 // ============================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -96,7 +100,7 @@ Deno.serve(async (req) => {
   const importe = parsearImporte(cuerpo.importe)
   let comercio = String(cuerpo.comercio ?? '').trim() || 'Desconocido'
 
-  // --- Marcador de deuda al final del concepto: "deben 45" o "> 45" ---
+  // --- Marcador de deuda al final del concepto: "deben 45", "> 45" o "/4" ---
   let importeDeuda: number | null = null
   const mDeuda = comercio.match(
     /(?:(?:^|\s)deben|\s*>)\s*([\d]+(?:[.,]\d+)?)\s*$/i,
@@ -106,6 +110,16 @@ Deno.serve(async (req) => {
     if (v !== null) {
       importeDeuda = v
       comercio = comercio.slice(0, mDeuda.index).trim() || 'Desconocido'
+    }
+  } else {
+    // "/N": dividir entre N personas (tú incluido) -> te deben N-1 partes
+    const mSplit = comercio.match(/\s*\/\s*(\d{1,2})\s*$/)
+    if (mSplit && typeof mSplit.index === 'number') {
+      const n = Number(mSplit[1])
+      if (n >= 2 && importe !== null) {
+        importeDeuda = Math.round(((importe * (n - 1)) / n) * 100) / 100
+        comercio = comercio.slice(0, mSplit.index).trim() || 'Desconocido'
+      }
     }
   }
   const fecha = parsearFecha(cuerpo.fecha)
