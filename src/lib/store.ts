@@ -1,4 +1,4 @@
-import type { Categoria, Gasto, GastoNuevo, Presupuesto } from '../types'
+import type { Categoria, Deuda, DeudaRecurrente, Gasto, GastoNuevo, Presupuesto } from '../types'
 import { CATEGORIAS_DEFECTO } from './categorias'
 import { supabase } from './supabase'
 
@@ -194,4 +194,195 @@ export async function guardarPresupuestos(lista: Presupuesto[]): Promise<void> {
     const { error: e2 } = await supabase.from('presupuestos').insert(limpios)
     if (e2) throw new Error(e2.message)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Deudas ("me deben") y deudas recurrentes
+// ---------------------------------------------------------------------------
+
+const CLAVE_DEUDAS = 'finanzas.deudas.v1'
+const CLAVE_DEUDAS_REC = 'finanzas.deudasrec.v1'
+
+function leerDeudasLocal(): Deuda[] {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_DEUDAS) ?? '[]') as Deuda[]
+  } catch {
+    return []
+  }
+}
+
+function guardarDeudasLocal(deudas: Deuda[]) {
+  localStorage.setItem(CLAVE_DEUDAS, JSON.stringify(deudas))
+}
+
+function leerRecurrentesLocal(): DeudaRecurrente[] {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_DEUDAS_REC) ?? '[]') as DeudaRecurrente[]
+  } catch {
+    return []
+  }
+}
+
+function guardarRecurrentesLocal(lista: DeudaRecurrente[]) {
+  localStorage.setItem(CLAVE_DEUDAS_REC, JSON.stringify(lista))
+}
+
+export async function listarDeudas(): Promise<Deuda[]> {
+  if (!supabase) {
+    return leerDeudasLocal().sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+  const { data, error } = await supabase
+    .from('deudas')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Deuda[]
+}
+
+export async function crearDeuda(nueva: {
+  fecha: string
+  concepto: string
+  deudor?: string | null
+  importe: number
+}): Promise<void> {
+  const fila = {
+    fecha: nueva.fecha,
+    concepto: nueva.concepto.trim(),
+    deudor: nueva.deudor?.trim() || null,
+    importe: nueva.importe,
+    estado: 'pendiente' as const,
+    origen: 'panel' as const,
+  }
+  if (!supabase) {
+    const deudas = leerDeudasLocal()
+    deudas.push({ ...fila, id: idAleatorio(), created_at: new Date().toISOString() })
+    guardarDeudasLocal(deudas)
+    return
+  }
+  const { error } = await supabase.from('deudas').insert(fila)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Marca una deuda como cobrada y registra el ingreso correspondiente
+ * (categoría "Reembolsos"), para que el balance refleje la realidad.
+ */
+export async function cobrarDeuda(deuda: Deuda): Promise<void> {
+  const hoy = new Date()
+  const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+  await anadirGasto({
+    fecha: fechaHoy,
+    importe: deuda.importe,
+    tipo: 'ingreso',
+    comercio: deuda.deudor ? `${deuda.concepto} · ${deuda.deudor}` : deuda.concepto,
+    descripcion: 'Cobro de deuda',
+    categoria_id: 'reembolsos',
+    origen: 'manual',
+  })
+  if (!supabase) {
+    const deudas = leerDeudasLocal()
+    const d = deudas.find((x) => x.id === deuda.id)
+    if (d) {
+      d.estado = 'cobrada'
+      d.cobrada_at = new Date().toISOString()
+      guardarDeudasLocal(deudas)
+    }
+    return
+  }
+  const { error } = await supabase
+    .from('deudas')
+    .update({ estado: 'cobrada', cobrada_at: new Date().toISOString() })
+    .eq('id', deuda.id)
+  if (error) throw new Error(error.message)
+}
+
+export async function eliminarDeuda(deudaId: string): Promise<void> {
+  if (!supabase) {
+    guardarDeudasLocal(leerDeudasLocal().filter((d) => d.id !== deudaId))
+    return
+  }
+  const { error } = await supabase.from('deudas').delete().eq('id', deudaId)
+  if (error) throw new Error(error.message)
+}
+
+export async function listarDeudasRecurrentes(): Promise<DeudaRecurrente[]> {
+  if (!supabase) return leerRecurrentesLocal().filter((r) => r.activa)
+  const { data, error } = await supabase
+    .from('deudas_recurrentes')
+    .select('*')
+    .eq('activa', true)
+    .order('id')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as DeudaRecurrente[]
+}
+
+export async function crearDeudaRecurrente(nueva: {
+  concepto: string
+  deudor?: string | null
+  importe: number
+  dia: number
+}): Promise<void> {
+  const fila = {
+    concepto: nueva.concepto.trim(),
+    deudor: nueva.deudor?.trim() || null,
+    importe: nueva.importe,
+    dia: Math.min(Math.max(Math.round(nueva.dia), 1), 28),
+    activa: true,
+  }
+  if (!supabase) {
+    const lista = leerRecurrentesLocal()
+    const id = lista.reduce((m, r) => Math.max(m, r.id), 0) + 1
+    lista.push({ ...fila, id })
+    guardarRecurrentesLocal(lista)
+    return
+  }
+  const { error } = await supabase.from('deudas_recurrentes').insert(fila)
+  if (error) throw new Error(error.message)
+}
+
+export async function eliminarDeudaRecurrente(id: number): Promise<void> {
+  if (!supabase) {
+    guardarRecurrentesLocal(leerRecurrentesLocal().filter((r) => r.id !== id))
+    return
+  }
+  // Desactivar (no borrar) para conservar el historial de deudas generadas
+  const { error } = await supabase
+    .from('deudas_recurrentes')
+    .update({ activa: false })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Genera las deudas del mes para cada recurrente activa (si no existen ya).
+ * Se llama al abrir el panel: idempotente gracias al índice único
+ * (recurrente_id, mes).
+ */
+export async function generarDeudasRecurrentes(mes: string): Promise<void> {
+  const recurrentes = await listarDeudasRecurrentes()
+  if (recurrentes.length === 0) return
+  const filas = recurrentes.map((r) => ({
+    fecha: `${mes}-${String(r.dia).padStart(2, '0')}`,
+    concepto: r.concepto,
+    deudor: r.deudor ?? null,
+    importe: r.importe,
+    estado: 'pendiente' as const,
+    origen: 'recurrente' as const,
+    recurrente_id: r.id,
+    mes,
+  }))
+  if (!supabase) {
+    const deudas = leerDeudasLocal()
+    for (const f of filas) {
+      if (!deudas.some((d) => d.recurrente_id === f.recurrente_id && d.mes === mes)) {
+        deudas.push({ ...f, id: idAleatorio(), created_at: new Date().toISOString() })
+      }
+    }
+    guardarDeudasLocal(deudas)
+    return
+  }
+  const { error } = await supabase
+    .from('deudas')
+    .upsert(filas, { onConflict: 'recurrente_id,mes', ignoreDuplicates: true })
+  if (error) throw new Error(error.message)
 }

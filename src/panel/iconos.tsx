@@ -151,6 +151,14 @@ const RUTAS: Record<string, ReactElement> = {
       <line x1="12" y1="15" x2="12" y2="3" />
     </>
   ),
+  monedas: (
+    <>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="m16.71 13.88.7.71-2.82 2.82" />
+    </>
+  ),
   movil: (
     <>
       <rect x="5" y="2" width="14" height="20" rx="2" />
@@ -169,10 +177,12 @@ export const ICONO_CAT: Record<string, string> = {
   salud: 'salud',
   viajes: 'avion',
   otros: 'caja',
+  apuestas_gasto: 'dado',
   nomina: 'maletin',
   apuestas: 'dado',
   inversiones: 'tendencia',
   otros_ingresos: 'caja',
+  reembolsos: 'monedas',
 }
 
 interface Props {

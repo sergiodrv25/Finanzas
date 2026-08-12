@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Categoria, Gasto, Presupuesto } from '../types'
+import type { Categoria, Deuda, DeudaRecurrente, Gasto, Presupuesto } from '../types'
 import { CATEGORIAS_DEFECTO } from '../lib/categorias'
 import { hoyISO, mesActual, nombreMes, sumarMeses } from '../lib/formato'
 import {
+  cobrarDeuda,
+  crearDeuda,
+  crearDeudaRecurrente,
+  eliminarDeuda,
+  eliminarDeudaRecurrente,
+  generarDeudasRecurrentes,
   guardarPresupuestos,
   listarCategorias,
+  listarDeudas,
+  listarDeudasRecurrentes,
   listarGastosRango,
   listarPresupuestos,
 } from '../lib/store'
@@ -12,6 +20,7 @@ import { modoLocal } from '../lib/supabase'
 import Icono from './iconos'
 import { Calendario, Evolucion, GastoPorCategoria, Kpis } from './secciones'
 import { Presupuestos, Suscripciones, TablaMovimientos } from './bloques'
+import { Deudas } from './deudas'
 import { serieMensual } from './utiles'
 
 type Preset = 'mes' | '3m' | '6m' | 'anio'
@@ -50,6 +59,9 @@ export default function Panel() {
   const [movs, setMovs] = useState<Gasto[]>([]) // últimos 12 meses
   const [categorias, setCategorias] = useState<Categoria[]>(CATEGORIAS_DEFECTO)
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([])
+  const [deudas, setDeudas] = useState<Deuda[]>([])
+  const [recurrentes, setRecurrentes] = useState<DeudaRecurrente[]>([])
+  const [deudasDisponibles, setDeudasDisponibles] = useState(true)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [preset, setPreset] = useState<Preset>('mes')
@@ -71,6 +83,17 @@ export default function Panel() {
       setMovs(g)
       setCategorias(c)
       setPresupuestos(p)
+      // Deudas: generar las recurrentes del mes y cargar; si falta la
+      // migración, la sección lo indica sin tumbar el panel.
+      try {
+        await generarDeudasRecurrentes(mesActual())
+        const [d, r] = await Promise.all([listarDeudas(), listarDeudasRecurrentes()])
+        setDeudas(d)
+        setRecurrentes(r)
+        setDeudasDisponibles(true)
+      } catch {
+        setDeudasDisponibles(false)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error cargando los datos.')
     } finally {
@@ -134,6 +157,34 @@ export default function Panel() {
     setPresupuestos(lista)
   }
 
+  async function cobrar(deuda: Deuda) {
+    await cobrarDeuda(deuda)
+    await recargar() // refresca deudas y el ingreso nuevo en movimientos
+  }
+
+  async function quitarDeuda(id: string) {
+    await eliminarDeuda(id)
+    setDeudas((ds) => ds.filter((d) => d.id !== id))
+  }
+
+  async function nuevaDeuda(d: { fecha: string; concepto: string; deudor: string; importe: number }) {
+    await crearDeuda(d)
+    setDeudas(await listarDeudas())
+  }
+
+  async function nuevaRecurrente(r: { concepto: string; deudor: string; importe: number; dia: number }) {
+    await crearDeudaRecurrente(r)
+    await generarDeudasRecurrentes(mesActual())
+    const [d, rec] = await Promise.all([listarDeudas(), listarDeudasRecurrentes()])
+    setDeudas(d)
+    setRecurrentes(rec)
+  }
+
+  async function quitarRecurrente(id: number) {
+    await eliminarDeudaRecurrente(id)
+    setRecurrentes((rs) => rs.filter((r) => r.id !== id))
+  }
+
   function irA(id: string) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -169,6 +220,9 @@ export default function Panel() {
           </button>
           <button type="button" onClick={() => irA('presupuestos')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
             <Icono id="diana" className="text-tinta-3" /> Presupuestos
+          </button>
+          <button type="button" onClick={() => irA('deudas')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
+            <Icono id="monedas" className="text-tinta-3" /> Me deben
           </button>
           <span className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-tinta-3">
             <Icono id="tendencia" /> Inversiones
@@ -264,6 +318,17 @@ export default function Panel() {
                 />
               </div>
             </div>
+
+            <Deudas
+              deudas={deudas}
+              recurrentes={recurrentes}
+              disponible={deudasDisponibles}
+              onCobrar={cobrar}
+              onEliminar={quitarDeuda}
+              onCrear={nuevaDeuda}
+              onCrearRecurrente={nuevaRecurrente}
+              onEliminarRecurrente={quitarRecurrente}
+            />
 
             <TablaMovimientos movs={periodo} categorias={categorias} />
           </>

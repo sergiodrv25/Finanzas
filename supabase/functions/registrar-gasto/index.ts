@@ -26,6 +26,11 @@
 //   "tipo": "ingreso" -> registra un ingreso en vez de un gasto.
 //     Atajo rápido: si el importe llega con prefijo "+" ("+1500"),
 //     también se interpreta como ingreso.
+//
+// Deudas ("me deben"): si el comercio termina en "deben <importe>"
+// (o "> <importe>"), p. ej. "cena cumpleaños deben 45", se limpia el
+// nombre y se crea una deuda pendiente enlazada al gasto en la tabla
+// `deudas`. Solo aplica a gastos.
 // ============================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -89,7 +94,20 @@ Deno.serve(async (req) => {
   }
 
   const importe = parsearImporte(cuerpo.importe)
-  const comercio = String(cuerpo.comercio ?? '').trim() || 'Desconocido'
+  let comercio = String(cuerpo.comercio ?? '').trim() || 'Desconocido'
+
+  // --- Marcador de deuda al final del concepto: "deben 45" o "> 45" ---
+  let importeDeuda: number | null = null
+  const mDeuda = comercio.match(
+    /(?:(?:^|\s)deben|\s*>)\s*([\d]+(?:[.,]\d+)?)\s*$/i,
+  )
+  if (mDeuda && typeof mDeuda.index === 'number') {
+    const v = parsearImporte(mDeuda[1])
+    if (v !== null) {
+      importeDeuda = v
+      comercio = comercio.slice(0, mDeuda.index).trim() || 'Desconocido'
+    }
+  }
   const fecha = parsearFecha(cuerpo.fecha)
   const origen = cuerpo.origen === 'manual' ? 'manual' : 'apple_pay'
   const categoriaSolicitada = String(cuerpo.categoria ?? '').trim()
@@ -138,12 +156,16 @@ Deno.serve(async (req) => {
   if (categoriaSolicitada && normalizar(categoriaSolicitada) !== 'auto') {
     const { data: categorias } = await supabase
       .from('categorias')
-      .select('id, nombre')
+      .select('id, nombre, tipo')
     if (categorias) {
       const buscada = normalizar(categoriaSolicitada)
-      const encontrada = categorias.find(
+      const candidatas = categorias.filter(
         (c) => normalizar(String(c.nombre)) === buscada,
       )
+      // Si hay dos categorías con el mismo nombre (p. ej. "Apuestas" de
+      // gasto y de ingreso), gana la que coincide con el tipo del movimiento.
+      const encontrada =
+        candidatas.find((c) => (c.tipo ?? 'gasto') === tipo) ?? candidatas[0]
       if (encontrada) categoriaId = encontrada.id
       // Si no coincide con ninguna categoría, no se falla:
       // se sigue con las reglas automáticas.
@@ -188,7 +210,26 @@ Deno.serve(async (req) => {
     })
   }
 
-  return new Response(JSON.stringify({ ok: true, gasto: data }), {
+  // --- Crear la deuda enlazada (si el concepto traía marcador) ---
+  let deuda: unknown = null
+  if (importeDeuda !== null && tipo === 'gasto') {
+    const { data: d } = await supabase
+      .from('deudas')
+      .insert({
+        fecha,
+        concepto: comercio,
+        importe: importeDeuda,
+        estado: 'pendiente',
+        origen: 'atajo',
+        gasto_id: (data as { id: string }).id,
+      })
+      .select()
+      .single()
+    deuda = d ?? null
+    // Si la tabla no existe aún, el gasto se registra igualmente.
+  }
+
+  return new Response(JSON.stringify({ ok: true, gasto: data, deuda }), {
     headers: { 'content-type': 'application/json' },
   })
 })

@@ -13,11 +13,13 @@ export const CATEGORIAS_DEFECTO: Categoria[] = [
   { id: 'ocio', nombre: 'Ocio', emoji: '🎬', color: '#c98500', tipo: 'gasto' },
   { id: 'salud', nombre: 'Salud', emoji: '💊', color: '#e66767', tipo: 'gasto' },
   { id: 'viajes', nombre: 'Viajes', emoji: '✈️', color: '#008300', tipo: 'gasto' },
+  { id: 'apuestas_gasto', nombre: 'Apuestas', emoji: '🎰', color: '#c9a227', tipo: 'gasto' },
   { id: 'otros', nombre: 'Otros', emoji: '📦', color: '#898781', tipo: 'gasto' },
   { id: 'nomina', nombre: 'Nómina', emoji: '💼', color: '#14a5a5', tipo: 'ingreso' },
   { id: 'apuestas', nombre: 'Apuestas', emoji: '🎲', color: '#c9a227', tipo: 'ingreso' },
   { id: 'inversiones', nombre: 'Inversiones', emoji: '📈', color: '#5aa64c', tipo: 'ingreso' },
   { id: 'otros_ingresos', nombre: 'Otros ingresos', emoji: '💰', color: '#8a8f98', tipo: 'ingreso' },
+  { id: 'reembolsos', nombre: 'Reembolsos', emoji: '🤝', color: '#8b93a8', tipo: 'ingreso' },
 ]
 
 /** Tipo efectivo de una categoría (datos antiguos sin campo tipo = gasto). */

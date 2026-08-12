@@ -10,10 +10,12 @@ export const COLOR_CAT: Record<string, string> = {
   hogar: '#7d7cec',
   salud: '#26a3ba',
   otros: '#8b93a8',
+  apuestas_gasto: '#bb8b2e',
   nomina: '#26a3ba',
   apuestas: '#bb8b2e',
   inversiones: '#63a52e',
   otros_ingresos: '#8b93a8',
+  reembolsos: '#8b93a8',
 }
 
 export const SERIE_INGRESOS = '#1da186'

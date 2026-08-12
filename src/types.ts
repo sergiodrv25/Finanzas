@@ -39,3 +39,30 @@ export interface Presupuesto {
   categoria_id: string
   limite: number // en euros, > 0
 }
+
+export type EstadoDeuda = 'pendiente' | 'cobrada'
+export type OrigenDeuda = 'atajo' | 'panel' | 'recurrente'
+
+export interface Deuda {
+  id: string
+  fecha: string // ISO date
+  concepto: string
+  deudor?: string | null
+  importe: number
+  estado: EstadoDeuda
+  origen: OrigenDeuda
+  gasto_id?: string | null
+  recurrente_id?: number | null
+  mes?: string | null // 'YYYY-MM' si viene de una recurrente
+  created_at: string
+  cobrada_at?: string | null
+}
+
+export interface DeudaRecurrente {
+  id: number
+  concepto: string
+  deudor?: string | null
+  importe: number
+  dia: number // 1-28
+  activa: boolean
+}
