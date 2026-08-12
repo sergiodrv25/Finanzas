@@ -64,7 +64,9 @@ export default function Panel() {
       const [g, c, p] = await Promise.all([
         listarGastosRango(inicio, fin),
         listarCategorias(),
-        listarPresupuestos(),
+        // Si la tabla de presupuestos aún no existe, el resto del panel
+        // debe cargar igualmente.
+        listarPresupuestos().catch(() => [] as Presupuesto[]),
       ])
       setMovs(g)
       setCategorias(c)
