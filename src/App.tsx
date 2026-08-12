@@ -15,6 +15,7 @@ import ListaGastos from './components/ListaGastos'
 import HojaNuevoGasto from './components/HojaNuevoGasto'
 import HojaGasto from './components/HojaGasto'
 import PantallaLogin from './components/PantallaLogin'
+import Panel from './panel/Panel'
 
 export default function App() {
   // null = comprobando sesión, false = sin sesión, true = con sesión
@@ -38,6 +39,9 @@ export default function App() {
   }
   if (!autenticado) {
     return <PantallaLogin />
+  }
+  if (window.location.pathname.startsWith('/panel')) {
+    return <Panel />
   }
   return <Principal />
 }

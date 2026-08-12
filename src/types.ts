@@ -34,3 +34,8 @@ export interface GastoNuevo {
   origen: OrigenGasto
   moneda?: string
 }
+
+export interface Presupuesto {
+  categoria_id: string
+  limite: number // en euros, > 0
+}

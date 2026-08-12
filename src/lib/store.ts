@@ -1,4 +1,4 @@
-import type { Categoria, Gasto, GastoNuevo } from '../types'
+import type { Categoria, Gasto, GastoNuevo, Presupuesto } from '../types'
 import { CATEGORIAS_DEFECTO } from './categorias'
 import { supabase } from './supabase'
 
@@ -134,4 +134,64 @@ export async function eliminarGasto(gastoId: string): Promise<void> {
   }
   const { error } = await supabase.from('gastos').delete().eq('id', gastoId)
   if (error) throw new Error(error.message)
+}
+
+/** Lista movimientos en el rango [inicio, fin) de fechas ISO (YYYY-MM-DD). */
+export async function listarGastosRango(
+  inicio: string,
+  fin: string,
+): Promise<Gasto[]> {
+  if (!supabase) {
+    return leerLocal()
+      .filter((g) => g.fecha >= inicio && g.fecha < fin)
+      .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b.created_at.localeCompare(a.created_at)))
+  }
+  const { data, error } = await supabase
+    .from('gastos')
+    .select('*')
+    .gte('fecha', inicio)
+    .lt('fecha', fin)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Gasto[]
+}
+
+// ---------------------------------------------------------------------------
+// Presupuestos mensuales por categoría (tabla `presupuestos`)
+// ---------------------------------------------------------------------------
+
+const CLAVE_PPTO = 'finanzas.presupuestos.v1'
+
+export async function listarPresupuestos(): Promise<Presupuesto[]> {
+  if (!supabase) {
+    try {
+      return JSON.parse(localStorage.getItem(CLAVE_PPTO) ?? '[]') as Presupuesto[]
+    } catch {
+      return []
+    }
+  }
+  const { data, error } = await supabase
+    .from('presupuestos')
+    .select('categoria_id, limite')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Presupuesto[]
+}
+
+/** Reemplaza el conjunto completo de presupuestos (son pocas filas). */
+export async function guardarPresupuestos(lista: Presupuesto[]): Promise<void> {
+  const limpios = lista.filter((p) => p.limite > 0)
+  if (!supabase) {
+    localStorage.setItem(CLAVE_PPTO, JSON.stringify(limpios))
+    return
+  }
+  const { error: e1 } = await supabase
+    .from('presupuestos')
+    .delete()
+    .neq('categoria_id', '')
+  if (e1) throw new Error(e1.message)
+  if (limpios.length > 0) {
+    const { error: e2 } = await supabase.from('presupuestos').insert(limpios)
+    if (e2) throw new Error(e2.message)
+  }
 }
