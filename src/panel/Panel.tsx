@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Categoria, Deuda, DeudaRecurrente, Gasto, Presupuesto } from '../types'
-import { CATEGORIAS_DEFECTO } from '../lib/categorias'
+import { CATEGORIAS_DEFECTO, esApuesta } from '../lib/categorias'
 import { hoyISO, mesActual, nombreMes, sumarMeses } from '../lib/formato'
 import {
   cobrarDeuda,
@@ -21,6 +21,7 @@ import Icono from './iconos'
 import { Calendario, Evolucion, GastoPorCategoria, Kpis } from './secciones'
 import { Presupuestos, Suscripciones, TablaMovimientos } from './bloques'
 import { Deudas } from './deudas'
+import { Apuestas } from './apuestas'
 import { serieMensual } from './utiles'
 
 type Preset = 'mes' | '3m' | '6m' | 'anio'
@@ -132,9 +133,18 @@ export default function Panel() {
 
   const meses = mesesDelPreset(preset)
   const serie = useMemo(() => serieMensual(filtradosGlobal, meses), [filtradosGlobal, meses])
-  const serie12 = useMemo(
-    () => serieMensual(movs, Array.from({ length: 12 }, (_, i) => sumarMeses(mesActual(), i - 11))),
-    [movs],
+  const meses12 = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => sumarMeses(mesActual(), i - 11)),
+    [],
+  )
+  const serie12 = useMemo(() => serieMensual(movs, meses12), [movs, meses12])
+
+  const apuestasPeriodo = useMemo(
+    () =>
+      movs.filter(
+        (g) => esApuesta(g.categoria_id) && g.fecha >= inicio && g.fecha < fin,
+      ),
+    [movs, inicio, fin],
   )
 
   const gastoMesActualPorCat = useMemo(() => {
@@ -223,6 +233,9 @@ export default function Panel() {
           </button>
           <button type="button" onClick={() => irA('deudas')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
             <Icono id="monedas" className="text-tinta-3" /> Me deben
+          </button>
+          <button type="button" onClick={() => irA('apuestas')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
+            <Icono id="dado" className="text-tinta-3" /> Apuestas
           </button>
           <span className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-tinta-3">
             <Icono id="tendencia" /> Inversiones
@@ -328,6 +341,13 @@ export default function Panel() {
               onCrear={nuevaDeuda}
               onCrearRecurrente={nuevaRecurrente}
               onEliminarRecurrente={quitarRecurrente}
+            />
+
+            <Apuestas
+              periodo={apuestasPeriodo}
+              movs12m={movs}
+              meses12={meses12}
+              etiquetaPeriodo={etiquetaPeriodo}
             />
 
             <TablaMovimientos movs={periodo} categorias={categorias} />
