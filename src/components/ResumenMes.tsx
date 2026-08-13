@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Categoria, Gasto } from '../types'
 import { categoriaPorId, esApuesta } from '../lib/categorias'
 import { formatearImporte } from '../lib/formato'
@@ -13,10 +12,7 @@ interface FilaCategoria {
   total: number
 }
 
-const TOP_CATEGORIAS = 5
-
 export default function ResumenMes({ gastos, categorias }: Props) {
-  const [verTodas, setVerTodas] = useState(false)
   // Las apuestas van aparte: no son consumo ni ingreso ordinario
   const soloGastos = gastos.filter((g) => g.tipo !== 'ingreso' && !esApuesta(g.categoria_id))
   const soloIngresos = gastos.filter((g) => g.tipo === 'ingreso' && !esApuesta(g.categoria_id))
@@ -95,7 +91,7 @@ export default function ResumenMes({ gastos, categorias }: Props) {
 
       {filas.length > 0 && (
         <div className="mt-6 space-y-3">
-          {(verTodas ? filas : filas.slice(0, TOP_CATEGORIAS)).map(({ categoria, total: t }) => (
+          {filas.map(({ categoria, total: t }) => (
             <div key={categoria.id}>
               <div className="mb-1 flex items-baseline justify-between text-sm">
                 <span className="text-tinta-2">
@@ -115,17 +111,6 @@ export default function ResumenMes({ gastos, categorias }: Props) {
               </div>
             </div>
           ))}
-          {filas.length > TOP_CATEGORIAS && (
-            <button
-              type="button"
-              onClick={() => setVerTodas((v) => !v)}
-              className="w-full pt-1 text-center text-xs font-medium text-tinta-3 active:text-tinta-2"
-            >
-              {verTodas
-                ? 'Ver menos'
-                : `Ver las ${filas.length - TOP_CATEGORIAS} restantes`}
-            </button>
-          )}
         </div>
       )}
     </section>

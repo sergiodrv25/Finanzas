@@ -141,6 +141,7 @@ function Principal() {
         <>
           <ResumenMes gastos={gastos} categorias={categorias} />
           <ListaGastos
+            mes={mes}
             gastos={gastos}
             categorias={categorias}
             onSeleccionar={setGastoSeleccionado}
