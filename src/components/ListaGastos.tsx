@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Categoria, Gasto } from '../types'
 import { categoriaPorId } from '../lib/categorias'
 import { formatearImporte, hoyISO, nombreDia } from '../lib/formato'
@@ -46,23 +46,8 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
   const hoy = hoyISO()
   const diaHoy = hoy.slice(0, 7) === mes ? Number(hoy.slice(8, 10)) : null
 
+  // Día abierto en la hoja inferior (null = cerrada)
   const [diaSel, setDiaSel] = useState<number | null>(null)
-
-  // Día seleccionado por defecto: hoy si tiene movimientos; si no, el último con algo
-  useEffect(() => {
-    const hoyN = hoyISO().slice(0, 7) === mes ? Number(hoyISO().slice(8, 10)) : null
-    if (hoyN && porDia[hoyN - 1]?.items.length) {
-      setDiaSel(hoyN)
-      return
-    }
-    for (let i = porDia.length - 1; i >= 0; i--) {
-      if (porDia[i].items.length) {
-        setDiaSel(i + 1)
-        return
-      }
-    }
-    setDiaSel(null)
-  }, [mes, porDia])
 
   if (gastos.length === 0) {
     return (
@@ -87,28 +72,26 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
         {porDia.map((d, i) => {
           const num = i + 1
           const nivel = d.gasto === 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((d.gasto / maxGasto) * 4)))
-          const sel = diaSel === num
           const esHoy = diaHoy === num
+          const balance = d.ingreso - d.gasto
           return (
             <button
               key={num}
               type="button"
-              onClick={() => setDiaSel(num)}
+              onClick={() => setDiaSel((prev) => (prev === num ? null : num))}
               aria-label={`Día ${num}, gasto ${formatearImporte(d.gasto)}`}
-              className={`relative flex aspect-[0.85] flex-col items-center justify-center rounded-xl transition-transform active:scale-95 ${
-                sel ? 'ring-2 ring-acento' : 'ring-1 ring-borde/60'
-              }`}
+              className="relative flex aspect-[0.85] flex-col items-center justify-center rounded-xl ring-1 ring-borde/60 transition-transform active:scale-95"
               style={{ background: NIVELES[nivel] }}
             >
-              {d.items.length > 0 && d.ingreso !== d.gasto && (
+              {d.items.length > 0 && balance !== 0 && (
                 <i
                   className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${
-                    d.ingreso > d.gasto ? 'bg-emerald-400' : 'bg-red-400'
+                    balance > 0 ? 'bg-emerald-400' : 'bg-red-400'
                   }`}
                   aria-hidden="true"
                 />
               )}
-              <span className={`text-[12px] leading-none ${esHoy ? 'font-bold text-acento' : sel ? 'font-semibold' : 'text-tinta-2'}`}>
+              <span className={`text-[12px] leading-none ${esHoy ? 'font-bold text-acento' : 'text-tinta-2'}`}>
                 {num}
               </span>
               <span className="num mt-0.5 text-[9px] leading-none text-tinta-2">
@@ -119,64 +102,72 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
         })}
       </div>
 
-      {/* ----------------------------------------------- Día seleccionado */}
-      {diaSel && seleccion && (
-        <div className="mt-6">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-medium text-tinta-2">
-              {nombreDia(`${mes}-${String(diaSel).padStart(2, '0')}`)}
-            </h2>
-            {seleccion.items.length > 0 && (
-              <span className="num text-xs text-tinta-3">
-                {seleccion.gasto > 0 && `−${formatearImporte(seleccion.gasto)}`}
-                {seleccion.gasto > 0 && seleccion.ingreso > 0 && ' · '}
-                {seleccion.ingreso > 0 && `+${formatearImporte(seleccion.ingreso)}`}
-              </span>
+      {/* ------------------------------------ Hoja inferior del día */}
+      {diaSel !== null && seleccion && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center">
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setDiaSel(null)}
+          />
+          <div className="relative max-h-[75dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-borde bg-superficie p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-borde" aria-hidden="true" />
+
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-base font-semibold">
+                {nombreDia(`${mes}-${String(diaSel).padStart(2, '0')}`)}
+              </h2>
+              {seleccion.items.length > 0 && (
+                <span className="num text-xs text-tinta-3">
+                  {seleccion.gasto > 0 && `−${formatearImporte(seleccion.gasto)}`}
+                  {seleccion.gasto > 0 && seleccion.ingreso > 0 && ' · '}
+                  {seleccion.ingreso > 0 && `+${formatearImporte(seleccion.ingreso)}`}
+                </span>
+              )}
+            </div>
+
+            {seleccion.items.length === 0 ? (
+              <p className="py-8 text-center text-sm text-tinta-3">Sin movimientos este día.</p>
+            ) : (
+              <ul className="mt-3 overflow-hidden rounded-2xl border border-borde bg-superficie-2/40">
+                {seleccion.items.map((g, idx) => {
+                  const cat = categoriaPorId(categorias, g.categoria_id, g.tipo)
+                  return (
+                    <li key={g.id}>
+                      <button
+                        type="button"
+                        onClick={() => onSeleccionar(g)}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left active:bg-superficie-2 ${
+                          idx > 0 ? 'border-t border-borde' : ''
+                        }`}
+                      >
+                        <span
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
+                          style={{ background: `${cat.color}26` }}
+                          aria-hidden="true"
+                        >
+                          {cat.emoji}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{g.comercio}</span>
+                          <span className="block truncate text-xs text-tinta-3">
+                            {cat.nombre}
+                            {g.origen === 'apple_pay' && ' ·  Apple Pay'}
+                            {g.descripcion ? ` · ${g.descripcion}` : ''}
+                          </span>
+                        </span>
+                        <span className={`num shrink-0 font-medium ${g.tipo === 'ingreso' ? 'text-emerald-400' : ''}`}>
+                          {g.tipo === 'ingreso' ? '+' : '−'}
+                          {formatearImporte(g.importe)}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </div>
-
-          {seleccion.items.length === 0 ? (
-            <p className="mt-4 rounded-2xl border border-borde bg-superficie px-4 py-6 text-center text-sm text-tinta-3">
-              Sin movimientos este día.
-            </p>
-          ) : (
-            <ul className="mt-2 overflow-hidden rounded-2xl border border-borde bg-superficie">
-              {seleccion.items.map((g, idx) => {
-                const cat = categoriaPorId(categorias, g.categoria_id, g.tipo)
-                return (
-                  <li key={g.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSeleccionar(g)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left active:bg-superficie-2 ${
-                        idx > 0 ? 'border-t border-borde' : ''
-                      }`}
-                    >
-                      <span
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
-                        style={{ background: `${cat.color}26` }}
-                        aria-hidden="true"
-                      >
-                        {cat.emoji}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{g.comercio}</span>
-                        <span className="block truncate text-xs text-tinta-3">
-                          {cat.nombre}
-                          {g.origen === 'apple_pay' && ' ·  Apple Pay'}
-                          {g.descripcion ? ` · ${g.descripcion}` : ''}
-                        </span>
-                      </span>
-                      <span className={`num shrink-0 font-medium ${g.tipo === 'ingreso' ? 'text-emerald-400' : ''}`}>
-                        {g.tipo === 'ingreso' ? '+' : '−'}
-                        {formatearImporte(g.importe)}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
         </div>
       )}
     </section>
