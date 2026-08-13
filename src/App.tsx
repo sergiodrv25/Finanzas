@@ -101,7 +101,7 @@ function Principal() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg">
-      <header className="flex items-center justify-between px-5 pt-6 pb-4">
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-fondo/90 px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 backdrop-blur-md">
         <button
           type="button"
           aria-label="Mes anterior"

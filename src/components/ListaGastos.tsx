@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react'
 import type { Categoria, Gasto } from '../types'
 import { categoriaPorId } from '../lib/categorias'
 import { formatearImporte, nombreDia } from '../lib/formato'
+
+const LOTE_INICIAL = 15
+const LOTE_MAS = 20
 
 interface Props {
   gastos: Gasto[]
@@ -9,6 +13,13 @@ interface Props {
 }
 
 export default function ListaGastos({ gastos, categorias, onSeleccionar }: Props) {
+  const [visibles, setVisibles] = useState(LOTE_INICIAL)
+
+  // Al cambiar de mes (u ordenarse los datos), volver al tamaño inicial
+  useEffect(() => {
+    setVisibles(LOTE_INICIAL)
+  }, [gastos])
+
   if (gastos.length === 0) {
     return (
       <div className="px-5 py-16 text-center text-tinta-3">
@@ -19,9 +30,13 @@ export default function ListaGastos({ gastos, categorias, onSeleccionar }: Props
     )
   }
 
+  // Enseñar solo un lote y ampliar bajo demanda (evita el scroll infinito)
+  const recortados = gastos.slice(0, visibles)
+  const restantes = gastos.length - recortados.length
+
   // Agrupar por día (los gastos ya llegan ordenados por fecha descendente)
   const grupos: { fecha: string; items: Gasto[] }[] = []
-  for (const g of gastos) {
+  for (const g of recortados) {
     const ultimo = grupos[grupos.length - 1]
     if (ultimo && ultimo.fecha === g.fecha) ultimo.items.push(g)
     else grupos.push({ fecha: g.fecha, items: [g] })
@@ -87,6 +102,16 @@ export default function ListaGastos({ gastos, categorias, onSeleccionar }: Props
           </ul>
         </div>
       ))}
+
+      {restantes > 0 && (
+        <button
+          type="button"
+          onClick={() => setVisibles((v) => v + LOTE_MAS)}
+          className="mt-5 w-full rounded-xl border border-borde bg-superficie py-3 text-sm font-medium text-tinta-2 active:bg-superficie-2"
+        >
+          Mostrar más ({restantes} {restantes === 1 ? 'movimiento' : 'movimientos'})
+        </button>
+      )}
     </section>
   )
 }

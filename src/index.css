@@ -23,8 +23,7 @@ body {
   color: var(--color-tinta);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* Zonas seguras del iPhone (notch / barra inferior) en modo standalone */
-  padding-top: env(safe-area-inset-top);
+  /* Zona segura inferior del iPhone; la superior la gestiona la cabecera fija */
   padding-bottom: env(safe-area-inset-bottom);
   overscroll-behavior-y: none;
 }
