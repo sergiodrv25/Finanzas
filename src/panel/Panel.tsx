@@ -231,11 +231,11 @@ export default function Panel() {
           <button type="button" onClick={() => irA('presupuestos')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
             <Icono id="diana" className="text-tinta-3" /> Presupuestos
           </button>
-          <button type="button" onClick={() => irA('deudas')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
-            <Icono id="monedas" className="text-tinta-3" /> Me deben
-          </button>
           <button type="button" onClick={() => irA('apuestas')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
             <Icono id="dado" className="text-tinta-3" /> Apuestas
+          </button>
+          <button type="button" onClick={() => irA('deudas')} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-tinta-2 hover:bg-superficie">
+            <Icono id="monedas" className="text-tinta-3" /> Me deben
           </button>
           <span className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-tinta-3">
             <Icono id="tendencia" /> Inversiones
@@ -332,6 +332,15 @@ export default function Panel() {
               </div>
             </div>
 
+            <Apuestas
+              periodo={apuestasPeriodo}
+              movs12m={movs}
+              meses12={meses12}
+              etiquetaPeriodo={etiquetaPeriodo}
+            />
+
+            <TablaMovimientos movs={periodo} categorias={categorias} />
+
             <Deudas
               deudas={deudas}
               recurrentes={recurrentes}
@@ -342,15 +351,6 @@ export default function Panel() {
               onCrearRecurrente={nuevaRecurrente}
               onEliminarRecurrente={quitarRecurrente}
             />
-
-            <Apuestas
-              periodo={apuestasPeriodo}
-              movs12m={movs}
-              meses12={meses12}
-              etiquetaPeriodo={etiquetaPeriodo}
-            />
-
-            <TablaMovimientos movs={periodo} categorias={categorias} />
           </>
         )}
       </main>
