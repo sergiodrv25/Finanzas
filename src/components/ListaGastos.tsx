@@ -100,8 +100,13 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
               }`}
               style={{ background: NIVELES[nivel] }}
             >
-              {d.ingreso > 0 && (
-                <i className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              {d.items.length > 0 && d.ingreso !== d.gasto && (
+                <i
+                  className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${
+                    d.ingreso > d.gasto ? 'bg-emerald-400' : 'bg-red-400'
+                  }`}
+                  aria-hidden="true"
+                />
               )}
               <span className={`text-[12px] leading-none ${esHoy ? 'font-bold text-acento' : sel ? 'font-semibold' : 'text-tinta-2'}`}>
                 {num}
