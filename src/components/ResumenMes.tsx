@@ -55,44 +55,60 @@ export default function ResumenMes({ gastos, categorias }: Props) {
         {formatearImporte(totalGastos)}
       </p>
 
-      {(apostado > 0 || ganado > 0) && (
-        <p className="mt-3.5 rounded-2xl border border-borde bg-superficie px-4 py-3 text-[13.5px] leading-relaxed text-tinta-2">
-          Apuestas: apostado <b className="num text-tinta">{formatearImporte(apostado)}</b> · ganado{' '}
-          <b className="num text-tinta">{formatearImporte(ganado)}</b> · neto{' '}
-          <b
-            className={`num text-[15px] ${
-              netoApuestas > 0 ? 'text-verde' : netoApuestas < 0 ? 'text-rojo' : ''
-            }`}
-          >
-            {netoApuestas >= 0 ? '+' : '−'}
-            {formatearImporte(Math.abs(netoApuestas))}
-          </b>
-        </p>
-      )}
+      {/* Banda de métricas: el mes arriba y, si hubo apuestas, su fila debajo en la misma rejilla */}
+      <div className="mt-4 border-y border-linea">
+        <dl className="grid grid-cols-3 py-3">
+          <div className="pr-3">
+            <dt className="text-[11px] text-tinta-3">Ingresos</dt>
+            <dd className="num mt-0.5 text-[15px] font-medium text-verde">
+              +{formatearImporte(totalIngresos)}
+            </dd>
+          </div>
+          <div className="pr-3">
+            <dt className="text-[11px] text-tinta-3">Balance</dt>
+            <dd
+              className={`num mt-0.5 text-[15px] font-medium ${balance >= 0 ? 'text-verde' : 'text-rojo'}`}
+            >
+              {balance >= 0 ? '+' : '−'}
+              {formatearImporte(Math.abs(balance))}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-tinta-3">Ahorro</dt>
+            <dd className="num mt-0.5 text-[15px] font-medium text-tinta-2">
+              {textoAhorro(balance, totalIngresos)}
+            </dd>
+          </div>
+        </dl>
 
-      <dl className="mt-4 grid grid-cols-3 border-y border-linea py-3">
-        <div className="pr-3">
-          <dt className="text-[11px] text-tinta-3">Ingresos</dt>
-          <dd className="num mt-0.5 text-[15px] font-medium text-verde">
-            +{formatearImporte(totalIngresos)}
-          </dd>
-        </div>
-        <div className="pr-3">
-          <dt className="text-[11px] text-tinta-3">Balance</dt>
-          <dd
-            className={`num mt-0.5 text-[15px] font-medium ${balance >= 0 ? 'text-verde' : 'text-rojo'}`}
-          >
-            {balance >= 0 ? '+' : '−'}
-            {formatearImporte(Math.abs(balance))}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] text-tinta-3">Ahorro</dt>
-          <dd className="num mt-0.5 text-[15px] font-medium text-tinta-2">
-            {textoAhorro(balance, totalIngresos)}
-          </dd>
-        </div>
-      </dl>
+        {(apostado > 0 || ganado > 0) && (
+          <dl className="grid grid-cols-3 border-t border-linea py-3">
+            <div className="pr-3">
+              <dt className="text-[11px] text-tinta-3">Apostado</dt>
+              <dd className="num mt-0.5 text-[15px] font-medium text-tinta-2">
+                {formatearImporte(apostado)}
+              </dd>
+            </div>
+            <div className="pr-3">
+              <dt className="text-[11px] text-tinta-3">Ganado</dt>
+              <dd className="num mt-0.5 text-[15px] font-medium text-tinta-2">
+                {formatearImporte(ganado)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] text-tinta-3">Neto apuestas</dt>
+              <dd
+                className={`num mt-0.5 text-[15px] font-medium ${
+                  netoApuestas > 0 ? 'text-verde' : netoApuestas < 0 ? 'text-rojo' : 'text-tinta-2'
+                }`}
+              >
+                {netoApuestas >= 0 ? '+' : '−'}
+                {formatearImporte(Math.abs(netoApuestas))}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </div>
 
       {filas.length > 0 && (
         <>
