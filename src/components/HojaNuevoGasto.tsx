@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { Categoria, GastoNuevo, TipoMovimiento } from '../types'
 import { tipoDeCategoria } from '../lib/categorias'
 import { hoyISO } from '../lib/formato'
+// Iconos de trazo compartidos con el panel de escritorio (sin emojis)
+import Icono, { ICONO_CAT } from '../panel/iconos'
 
 interface Props {
   categorias: Categoria[]
@@ -122,14 +124,15 @@ export default function HojaNuevoGasto({ categorias, onGuardar, onCerrar }: Prop
                   key={c.id}
                   type="button"
                   onClick={() => setCategoriaId(activa ? null : c.id)}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
                     activa
                       ? 'border-transparent text-fondo'
                       : 'border-borde bg-superficie-2 text-tinta-2'
                   }`}
                   style={activa ? { background: c.color } : undefined}
                 >
-                  <span aria-hidden="true">{c.emoji}</span> {c.nombre}
+                  <Icono id={ICONO_CAT[c.id] ?? 'caja'} tam={15} />
+                  {c.nombre}
                 </button>
               )
             })}

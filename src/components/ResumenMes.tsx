@@ -1,6 +1,8 @@
 import type { Categoria, Gasto } from '../types'
 import { categoriaPorId, esApuesta } from '../lib/categorias'
 import { formatearImporte } from '../lib/formato'
+// Iconos de trazo compartidos con el panel de escritorio (sin emojis)
+import Icono, { ICONO_CAT } from '../panel/iconos'
 
 interface Props {
   gastos: Gasto[]
@@ -10,6 +12,14 @@ interface Props {
 interface FilaCategoria {
   categoria: Categoria
   total: number
+}
+
+/** Tasa de ahorro legible: acotada para que un mes sin ingresos no muestre −7945 %. */
+function textoAhorro(balance: number, ingresos: number): string {
+  if (ingresos <= 0) return '—'
+  const tasa = (balance / ingresos) * 100
+  if (tasa < -100 || tasa > 999) return '—'
+  return `${Math.round(tasa)} %`
 }
 
 export default function ResumenMes({ gastos, categorias }: Props) {
@@ -27,7 +37,6 @@ export default function ResumenMes({ gastos, categorias }: Props) {
   const totalGastos = soloGastos.reduce((s, g) => s + g.importe, 0)
   const totalIngresos = soloIngresos.reduce((s, g) => s + g.importe, 0)
   const balance = totalIngresos - totalGastos + netoApuestas
-  const tasaAhorro = totalIngresos > 0 ? (balance / totalIngresos) * 100 : null
 
   const porCategoria = new Map<string, number>()
   for (const g of soloGastos) {
@@ -40,78 +49,80 @@ export default function ResumenMes({ gastos, categorias }: Props) {
   const maximo = filas[0]?.total ?? 0
 
   return (
-    <section className="px-5">
-      <p className="text-sm text-tinta-2">Gastos del mes</p>
-      <p className="num mt-1 text-5xl font-semibold tracking-tight">
+    <section className="px-5 pt-2">
+      <p className="micro">Gastos del mes</p>
+      <p className="num mt-1.5 text-[44px] leading-none font-semibold tracking-[-0.035em]">
         {formatearImporte(totalGastos)}
       </p>
 
       {(apostado > 0 || ganado > 0) && (
-        <p className="mt-3 rounded-xl border border-borde bg-superficie px-4 py-2 text-xs text-tinta-2">
-          <span aria-hidden="true">🎲</span> Apuestas: apostado{' '}
-          <b className="num text-tinta">{formatearImporte(apostado)}</b> · ganado{' '}
-          <b className="num text-tinta">{formatearImporte(ganado)}</b> · neto{' '}
-          <b className={`num ${netoApuestas > 0 ? 'text-emerald-400' : netoApuestas < 0 ? 'text-red-400' : ''}`}>
-            {netoApuestas >= 0 ? '+' : '−'}{formatearImporte(Math.abs(netoApuestas))}
+        <p className="num mt-3 text-xs text-tinta-3">
+          Apuestas · −{formatearImporte(apostado)} · +{formatearImporte(ganado)} ·{' '}
+          <b
+            className={`font-semibold ${
+              netoApuestas > 0 ? 'text-verde' : netoApuestas < 0 ? 'text-rojo' : 'text-tinta-2'
+            }`}
+          >
+            {netoApuestas >= 0 ? '+' : '−'}
+            {formatearImporte(Math.abs(netoApuestas))}
           </b>
         </p>
       )}
 
-      {totalIngresos > 0 && (
-        <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl border border-borde bg-superficie px-4 py-3">
-          <div>
-            <p className="text-xs text-tinta-3">Ingresos</p>
-            <p className="num mt-0.5 text-sm font-medium text-emerald-400">
-              +{formatearImporte(totalIngresos)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-tinta-3">Balance</p>
-            <p
-              className={`num mt-0.5 text-sm font-medium ${
-                balance >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
-              {balance >= 0 ? '+' : '−'}
-              {formatearImporte(Math.abs(balance))}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-tinta-3">Ahorro</p>
-            <p
-              className={`num mt-0.5 text-sm font-medium ${
-                balance >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
-              {tasaAhorro === null ? '—' : `${Math.round(tasaAhorro)} %`}
-            </p>
-          </div>
+      <dl className="mt-4 grid grid-cols-3 border-y border-linea py-3">
+        <div className="pr-3">
+          <dt className="text-[11px] text-tinta-3">Ingresos</dt>
+          <dd className="num mt-0.5 text-[15px] font-medium text-verde">
+            +{formatearImporte(totalIngresos)}
+          </dd>
         </div>
-      )}
+        <div className="pr-3">
+          <dt className="text-[11px] text-tinta-3">Balance</dt>
+          <dd
+            className={`num mt-0.5 text-[15px] font-medium ${balance >= 0 ? 'text-verde' : 'text-rojo'}`}
+          >
+            {balance >= 0 ? '+' : '−'}
+            {formatearImporte(Math.abs(balance))}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] text-tinta-3">Ahorro</dt>
+          <dd className="num mt-0.5 text-[15px] font-medium text-tinta-2">
+            {textoAhorro(balance, totalIngresos)}
+          </dd>
+        </div>
+      </dl>
 
       {filas.length > 0 && (
-        <div className="mt-6 space-y-3">
-          {filas.map(({ categoria, total: t }) => (
-            <div key={categoria.id}>
-              <div className="mb-1 flex items-baseline justify-between text-sm">
-                <span className="text-tinta-2">
-                  <span aria-hidden="true">{categoria.emoji}</span>{' '}
-                  {categoria.nombre}
+        <>
+          <p className="micro mt-5">Por categoría</p>
+          <ul className="mt-3">
+            {filas.map(({ categoria, total: t }) => (
+              <li key={categoria.id} className="flex items-center gap-3 py-2">
+                <span style={{ color: categoria.color }} className="flex">
+                  <Icono id={ICONO_CAT[categoria.id] ?? 'caja'} tam={18} />
                 </span>
-                <span className="num text-tinta">{formatearImporte(t)}</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-superficie-2">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${maximo > 0 ? Math.max((t / maximo) * 100, 3) : 0}%`,
-                    background: categoria.color,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-[13.5px] text-tinta-2">{categoria.nombre}</span>
+                    <span className="num shrink-0 text-[13.5px] font-medium">
+                      {formatearImporte(t)}
+                    </span>
+                  </span>
+                  <span className="mt-1.5 block h-[3px] w-full overflow-hidden rounded-full bg-linea">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{
+                        width: `${maximo > 0 ? Math.max((t / maximo) * 100, 2) : 0}%`,
+                        background: categoria.color,
+                      }}
+                    />
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   )

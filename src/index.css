@@ -5,6 +5,7 @@
   --color-superficie: #101016;
   --color-superficie-2: #17171f;
   --color-borde: #23232d;
+  --color-linea: rgba(255, 255, 255, 0.06);
   --color-tinta: #f4f4f6;
   --color-tinta-2: #a3a3b0;
   --color-tinta-3: #6b6b78;
@@ -35,4 +36,20 @@ input, select, textarea, button {
 
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Etiqueta pequeña en versalitas para las cabeceras de sección */
+.micro {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-tinta-3);
+}
+
+/* Elementos con pulsación larga: sin menú contextual ni selección en iOS */
+.sin-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }

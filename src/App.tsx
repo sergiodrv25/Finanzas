@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Categoria, Gasto, GastoNuevo } from './types'
 import { CATEGORIAS_DEFECTO } from './lib/categorias'
 import { mesActual, nombreMes, sumarMeses } from './lib/formato'
+import { esErrorDeSesion, mensajeLegible } from './lib/errores'
 import {
   actualizarCategoria,
   anadirGasto,
@@ -46,6 +47,23 @@ export default function App() {
   return <Principal />
 }
 
+function FlechaMes({ hacia }: { hacia: 'izquierda' | 'derecha' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${hacia === 'izquierda' ? '' : 'rotate-180'}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
 function Principal() {
   const [mes, setMes] = useState(mesActual())
   const [gastos, setGastos] = useState<Gasto[]>([])
@@ -55,18 +73,32 @@ function Principal() {
   const [mostrandoNuevo, setMostrandoNuevo] = useState(false)
   const [gastoSeleccionado, setGastoSeleccionado] = useState<Gasto | null>(null)
 
-  const recargar = useCallback(async () => {
-    try {
-      setError(null)
-      const [g, c] = await Promise.all([listarGastosDelMes(mes), listarCategorias()])
-      setGastos(g)
-      setCategorias(c)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando los datos.')
-    } finally {
-      setCargando(false)
-    }
-  }, [mes])
+  const recargar = useCallback(
+    async (reintento = false): Promise<void> => {
+      try {
+        setError(null)
+        const [g, c] = await Promise.all([listarGastosDelMes(mes), listarCategorias()])
+        setGastos(g)
+        setCategorias(c)
+      } catch (e) {
+        const bruto = e instanceof Error ? e.message : ''
+        // Un desfase de reloj o un token caducado se arreglan solos con una sesión nueva
+        if (!reintento && supabase && esErrorDeSesion(bruto)) {
+          try {
+            await supabase.auth.refreshSession()
+            await recargar(true)
+            return
+          } catch {
+            /* si el refresco falla, se muestra el mensaje de abajo */
+          }
+        }
+        setError(mensajeLegible(bruto))
+      } finally {
+        setCargando(false)
+      }
+    },
+    [mes],
+  )
 
   useEffect(() => {
     setCargando(true)
@@ -81,6 +113,20 @@ function Principal() {
     document.addEventListener('visibilitychange', alVolver)
     return () => document.removeEventListener('visibilitychange', alVolver)
   }, [recargar])
+
+  // Pulsación larga sobre el nombre del mes: alta manual (sustituye al botón +)
+  const temporizador = useRef<number | null>(null)
+  const cancelarPulsacion = useCallback(() => {
+    if (temporizador.current !== null) {
+      window.clearTimeout(temporizador.current)
+      temporizador.current = null
+    }
+  }, [])
+  const iniciarPulsacion = useCallback(() => {
+    cancelarPulsacion()
+    temporizador.current = window.setTimeout(() => setMostrandoNuevo(true), 550)
+  }, [cancelarPulsacion])
+  useEffect(() => cancelarPulsacion, [cancelarPulsacion])
 
   async function guardarNuevo(nuevo: GastoNuevo) {
     await anadirGasto(nuevo)
@@ -101,24 +147,33 @@ function Principal() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg">
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-fondo/90 px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 backdrop-blur-md">
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-fondo/80 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
         <button
           type="button"
           aria-label="Mes anterior"
           onClick={() => setMes((m) => sumarMeses(m, -1))}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-borde text-tinta-2 active:bg-superficie-2"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-tinta-3 active:bg-superficie-2"
         >
-          ‹
+          <FlechaMes hacia="izquierda" />
         </button>
-        <h1 className="text-lg font-semibold">{nombreMes(mes)}</h1>
+        <h1
+          className="sin-callout text-[17px] font-semibold tracking-tight"
+          onPointerDown={iniciarPulsacion}
+          onPointerUp={cancelarPulsacion}
+          onPointerLeave={cancelarPulsacion}
+          onPointerCancel={cancelarPulsacion}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {nombreMes(mes)}
+        </h1>
         <button
           type="button"
           aria-label="Mes siguiente"
           onClick={() => setMes((m) => sumarMeses(m, 1))}
           disabled={esMesActual}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-borde text-tinta-2 active:bg-superficie-2 disabled:opacity-30"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-tinta-3 active:bg-superficie-2 disabled:opacity-25"
         >
-          ›
+          <FlechaMes hacia="derecha" />
         </button>
       </header>
 
@@ -145,18 +200,10 @@ function Principal() {
             gastos={gastos}
             categorias={categorias}
             onSeleccionar={setGastoSeleccionado}
+            onAnadir={() => setMostrandoNuevo(true)}
           />
         </>
       )}
-
-      <button
-        type="button"
-        aria-label="Añadir movimiento"
-        onClick={() => setMostrandoNuevo(true)}
-        className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-acento text-3xl font-light text-white shadow-lg shadow-black/40 active:scale-95"
-      >
-        +
-      </button>
 
       {mostrandoNuevo && (
         <HojaNuevoGasto

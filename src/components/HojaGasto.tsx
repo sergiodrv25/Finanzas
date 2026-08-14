@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { Categoria, Gasto } from '../types'
 import { categoriaPorId, tipoDeCategoria } from '../lib/categorias'
 import { formatearImporte, nombreDia } from '../lib/formato'
+// Iconos de trazo compartidos con el panel de escritorio (sin emojis)
+import Icono, { ICONO_CAT } from '../panel/iconos'
 
 interface Props {
   gasto: Gasto
@@ -60,11 +62,10 @@ export default function HojaGasto({
 
         <div className="flex items-center gap-3">
           <span
-            className="flex h-12 w-12 items-center justify-center rounded-full text-xl"
-            style={{ background: `${cat.color}26` }}
-            aria-hidden="true"
+            className="flex h-12 w-12 items-center justify-center rounded-full"
+            style={{ background: `${cat.color}26`, color: cat.color }}
           >
-            {cat.emoji}
+            <Icono id={ICONO_CAT[cat.id] ?? 'caja'} tam={22} />
           </span>
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold">{gasto.comercio}</p>
@@ -97,14 +98,15 @@ export default function HojaGasto({
                 type="button"
                 disabled={ocupado}
                 onClick={() => cambiar(c.id)}
-                className={`rounded-full border px-3 py-1.5 text-sm ${
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
                   activa
                     ? 'border-transparent text-fondo'
                     : 'border-borde bg-superficie-2 text-tinta-2'
                 }`}
                 style={activa ? { background: c.color } : undefined}
               >
-                <span aria-hidden="true">{c.emoji}</span> {c.nombre}
+                <Icono id={ICONO_CAT[c.id] ?? 'caja'} tam={15} />
+                {c.nombre}
               </button>
             )
           })}

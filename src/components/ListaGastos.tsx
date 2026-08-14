@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Categoria, Gasto } from '../types'
 import { categoriaPorId, esApuesta } from '../lib/categorias'
 import { formatearImporte, hoyISO, nombreDia } from '../lib/formato'
+// Iconos de trazo compartidos con el panel de escritorio (sin emojis)
+import Icono, { ICONO_CAT } from '../panel/iconos'
 
 interface Props {
   mes: string // 'YYYY-MM'
   gastos: Gasto[]
   categorias: Categoria[]
   onSeleccionar: (gasto: Gasto) => void
+  /** Alta manual: ya no hay botón +, se ofrece aquí y con pulsación larga en el mes. */
+  onAnadir?: () => void
 }
 
 interface DatosDia {
@@ -28,11 +32,11 @@ interface Grupo {
 
 // Intensidad del día según el gasto (sobre el acento azul)
 const NIVELES = [
-  'var(--color-superficie)',
-  'rgba(57, 135, 229, 0.18)',
-  'rgba(57, 135, 229, 0.34)',
-  'rgba(57, 135, 229, 0.52)',
-  'rgba(57, 135, 229, 0.74)',
+  'transparent',
+  'rgba(57, 135, 229, 0.14)',
+  'rgba(57, 135, 229, 0.28)',
+  'rgba(57, 135, 229, 0.46)',
+  'rgba(57, 135, 229, 0.68)',
 ]
 
 /** Importe con signo explícito: −12,30 € / +1.500,00 € */
@@ -40,7 +44,24 @@ function conSigno(v: number): string {
   return (v < 0 ? '−' : '+') + formatearImporte(Math.abs(v))
 }
 
-export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: Props) {
+function Chevron({ abierto }: { abierto: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-3.5 w-3.5 text-tinta-3 transition-transform duration-150 ${abierto ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
+export default function ListaGastos({ mes, gastos, categorias, onSeleccionar, onAnadir }: Props) {
   const [anio, numMes] = mes.split('-').map(Number)
   const dias = new Date(anio, numMes, 0).getDate()
   const offset = (new Date(anio, numMes - 1, 1).getDay() + 6) % 7 // lunes = 0
@@ -102,7 +123,7 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
         grupo.neto -= g.importe
         grupo.apostado += g.importe
       }
-      // En el grupo de apuestas, mostrar siempre el emoji de gasto 🎰
+      // En el grupo de apuestas, quedarse con la categoría de gasto
       if (clave === 'apuestas' && g.tipo === 'gasto') grupo.cat = cat
     }
     return [...mapa.values()].sort((a, b) => a.neto - b.neto)
@@ -110,10 +131,17 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
 
   if (gastos.length === 0) {
     return (
-      <div className="px-5 py-16 text-center text-tinta-3">
-        <p className="text-4xl" aria-hidden="true">🪙</p>
-        <p className="mt-3">Todavía no hay movimientos este mes.</p>
-        <p className="mt-1 text-sm">Pulsa + para añadir el primero.</p>
+      <div className="px-5 py-20 text-center">
+        <p className="text-sm text-tinta-2">Todavía no hay movimientos este mes.</p>
+        {onAnadir && (
+          <button
+            type="button"
+            onClick={onAnadir}
+            className="mt-4 rounded-full border border-borde px-4 py-2 text-[13px] text-tinta-2 active:bg-superficie-2"
+          >
+            Añadir a mano
+          </button>
+        )}
       </div>
     )
   }
@@ -131,16 +159,24 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
   }
 
   return (
-    <section className="px-5 pb-32">
+    <section className="pb-16">
       {/* ------------------------------------ Calendario compacto */}
-      <div className="mt-6 grid grid-cols-7 gap-1.5">
+      <div className="mt-5 grid grid-cols-7 gap-1 border-t border-linea px-5 pt-5">
         {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => (
-          <div key={d} className="pb-0.5 text-center text-[10px] font-medium text-tinta-3">{d}</div>
+          <div
+            key={d}
+            className="pb-1.5 text-center text-[10px] font-medium tracking-[0.08em] text-tinta-3"
+          >
+            {d}
+          </div>
         ))}
-        {Array.from({ length: offset }, (_, i) => <div key={`h${i}`} />)}
+        {Array.from({ length: offset }, (_, i) => (
+          <div key={`h${i}`} />
+        ))}
         {porDia.map((d, i) => {
           const num = i + 1
-          const nivel = d.gasto === 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((d.gasto / maxGasto) * 4)))
+          const nivel =
+            d.gasto === 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((d.gasto / maxGasto) * 4)))
           const esHoy = diaHoy === num
           const balance = d.ingreso - d.gasto
           const esActivo = diaActivo === num
@@ -151,20 +187,28 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
               onClick={() => setDiaSel(num)}
               aria-label={`Día ${num}, gasto ${formatearImporte(d.gasto)}`}
               aria-pressed={esActivo}
-              className={`relative flex aspect-[1.25] items-center justify-center rounded-xl transition-transform active:scale-95 ${
-                esActivo ? 'ring-2 ring-acento' : 'ring-1 ring-borde/60'
+              className={`relative flex aspect-[1.15] items-center justify-center rounded-[10px] transition-transform active:scale-90 ${
+                esActivo ? 'ring-1 ring-acento' : ''
               }`}
               style={{ background: NIVELES[nivel] }}
             >
               {d.items.length > 0 && balance !== 0 && (
                 <i
-                  className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${
-                    balance > 0 ? 'bg-emerald-400' : 'bg-red-400'
+                  className={`absolute top-1 right-1 h-1 w-1 rounded-full ${
+                    balance > 0 ? 'bg-verde' : 'bg-rojo/70'
                   }`}
                   aria-hidden="true"
                 />
               )}
-              <span className={`text-[12px] leading-none ${esHoy ? 'font-bold text-acento' : 'text-tinta-2'}`}>
+              <span
+                className={`text-[12px] leading-none ${
+                  esHoy
+                    ? 'font-semibold text-acento'
+                    : nivel === 0
+                      ? 'text-tinta-3'
+                      : 'text-tinta-2'
+                }`}
+              >
                 {num}
               </span>
             </button>
@@ -172,38 +216,45 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
         })}
       </div>
 
-      {/* ------------------------------------ Cabecera del día */}
+      {/* ------------------------------------ Día seleccionado */}
       {fechaActiva && seleccion && (
-        <>
-          <div className="mt-6 flex items-baseline justify-between">
-            <h2 className="text-base font-semibold">{nombreDia(fechaActiva)}</h2>
+        <div className="mt-6 px-5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-[15px] font-semibold">{nombreDia(fechaActiva)}</h2>
             {seleccion.items.length > 0 && (
-              <span className={`num text-base font-bold ${netoDia > 0 ? 'text-verde' : ''}`}>
+              <span
+                className={`num text-[15px] font-semibold ${
+                  netoDia > 0 ? 'text-verde' : netoDia < 0 ? 'text-tinta' : 'text-tinta-2'
+                }`}
+              >
                 {conSigno(netoDia)}
               </span>
             )}
           </div>
+
           {seleccion.items.length > 0 && (
-            <div className="mt-2 flex gap-2">
+            <p className="mt-1 text-[11px] text-tinta-3">
               {seleccion.gasto > 0 && (
-                <span className="num rounded-lg bg-superficie-2 px-2.5 py-1 text-xs text-tinta-2">
-                  Gastos −{formatearImporte(seleccion.gasto)}
-                </span>
+                <>
+                  Gastos <span className="num">−{formatearImporte(seleccion.gasto)}</span>
+                </>
               )}
+              {seleccion.gasto > 0 && seleccion.ingreso > 0 && <span> · </span>}
               {seleccion.ingreso > 0 && (
-                <span className="num rounded-lg bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-400">
-                  Ingresos +{formatearImporte(seleccion.ingreso)}
-                </span>
+                <>
+                  Ingresos{' '}
+                  <span className="num text-verde">+{formatearImporte(seleccion.ingreso)}</span>
+                </>
               )}
-            </div>
+            </p>
           )}
 
           {/* ------------------------------ Lista agrupada por categoría */}
           {seleccion.items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-tinta-3">Sin movimientos este día.</p>
+            <p className="py-10 text-center text-[13px] text-tinta-3">Sin movimientos este día.</p>
           ) : (
-            <ul className="mt-3 overflow-hidden rounded-2xl border border-borde bg-superficie-2/40">
-              {grupos.map((grupo, idx) => {
+            <ul className="mt-2.5">
+              {grupos.map((grupo) => {
                 const varios = grupo.items.length > 1
                 const abierto = abiertos.has(grupo.clave)
                 const unico = grupo.items[0]
@@ -213,59 +264,61 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
                     ? `${grupo.items.filter((g) => g.tipo === 'gasto').length} apuestas · −${Math.round(grupo.apostado)}€ +${Math.round(grupo.ganado)}€`
                     : `${grupo.items.length} movimientos`
                 return (
-                  <li key={grupo.clave} className={idx > 0 ? 'border-t border-borde' : ''}>
+                  <li key={grupo.clave} className="border-t border-linea">
                     <button
                       type="button"
                       onClick={() => (varios ? alternarGrupo(grupo.clave) : onSeleccionar(unico))}
                       aria-expanded={varios ? abierto : undefined}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-superficie-2"
+                      className="flex w-full items-center gap-3 py-3 text-left active:bg-superficie-2/60"
                     >
                       <span
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
-                        style={{ background: `${grupo.cat.color}26` }}
-                        aria-hidden="true"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                        style={{ background: `${grupo.cat.color}1f`, color: grupo.cat.color }}
                       >
-                        {grupo.cat.emoji}
+                        <Icono id={ICONO_CAT[grupo.cat.id] ?? 'caja'} tam={17} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{grupo.cat.nombre}</span>
-                        <span className="num block truncate text-xs text-tinta-3">{subtitulo}</span>
+                        <span className="block truncate text-[14px] font-medium">
+                          {grupo.cat.nombre}
+                        </span>
+                        <span className="num block truncate text-[11px] text-tinta-3">
+                          {subtitulo}
+                        </span>
                       </span>
-                      <span className="flex shrink-0 flex-col items-end gap-0.5">
-                        <span className={`num font-medium ${grupo.neto > 0 ? 'text-emerald-400' : ''}`}>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span
+                          className={`num text-[14px] font-medium ${grupo.neto > 0 ? 'text-verde' : ''}`}
+                        >
                           {conSigno(grupo.neto)}
                         </span>
-                        {varios && (
-                          <span
-                            className={`text-[9px] leading-none text-tinta-3 transition-transform ${abierto ? 'rotate-90' : ''}`}
-                            aria-hidden="true"
-                          >
-                            ▶
-                          </span>
-                        )}
+                        {varios && <Chevron abierto={abierto} />}
                       </span>
                     </button>
 
                     {varios && abierto && (
-                      <ul className="pb-1">
+                      <ul className="pb-2">
                         {grupo.items.map((g) => (
                           <li key={g.id}>
                             <button
                               type="button"
                               onClick={() => onSeleccionar(g)}
-                              className="flex w-full items-center gap-3 py-2 pr-4 pl-[4.25rem] text-left active:bg-superficie-2"
+                              className="flex w-full items-center gap-3 py-2 pl-12 text-left active:bg-superficie-2/60"
                             >
                               <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm text-tinta-2">{g.comercio}</span>
+                                <span className="block truncate text-[13px] text-tinta-2">
+                                  {g.comercio}
+                                </span>
                                 {(g.origen === 'apple_pay' || g.descripcion) && (
-                                  <span className="block truncate text-xs text-tinta-3">
+                                  <span className="block truncate text-[11px] text-tinta-3">
                                     {g.origen === 'apple_pay' ? ' Apple Pay' : ''}
                                     {g.origen === 'apple_pay' && g.descripcion ? ' · ' : ''}
                                     {g.descripcion ?? ''}
                                   </span>
                                 )}
                               </span>
-                              <span className={`num shrink-0 text-sm font-medium ${g.tipo === 'ingreso' ? 'text-emerald-400' : ''}`}>
+                              <span
+                                className={`num shrink-0 text-[13px] ${g.tipo === 'ingreso' ? 'text-verde' : 'text-tinta-2'}`}
+                              >
                                 {g.tipo === 'ingreso' ? '+' : '−'}
                                 {formatearImporte(g.importe)}
                               </span>
@@ -279,7 +332,7 @@ export default function ListaGastos({ mes, gastos, categorias, onSeleccionar }: 
               })}
             </ul>
           )}
-        </>
+        </div>
       )}
     </section>
   )
