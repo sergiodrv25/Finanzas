@@ -56,11 +56,12 @@ export default function ResumenMes({ gastos, categorias }: Props) {
       </p>
 
       {(apostado > 0 || ganado > 0) && (
-        <p className="num mt-3 text-xs text-tinta-3">
-          Apuestas · −{formatearImporte(apostado)} · +{formatearImporte(ganado)} ·{' '}
+        <p className="mt-3.5 rounded-2xl border border-borde bg-superficie px-4 py-3 text-[13.5px] leading-relaxed text-tinta-2">
+          Apuestas: apostado <b className="num text-tinta">{formatearImporte(apostado)}</b> · ganado{' '}
+          <b className="num text-tinta">{formatearImporte(ganado)}</b> · neto{' '}
           <b
-            className={`font-semibold ${
-              netoApuestas > 0 ? 'text-verde' : netoApuestas < 0 ? 'text-rojo' : 'text-tinta-2'
+            className={`num text-[15px] ${
+              netoApuestas > 0 ? 'text-verde' : netoApuestas < 0 ? 'text-rojo' : ''
             }`}
           >
             {netoApuestas >= 0 ? '+' : '−'}
